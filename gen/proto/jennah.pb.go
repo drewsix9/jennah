@@ -334,7 +334,7 @@ const file_proto_jennah_proto_rawDesc = "" +
 	"created_at\x18\x05 \x01(\tR\tcreatedAt2\xa0\x01\n" +
 	"\x11DeploymentService\x12F\n" +
 	"\tSubmitJob\x12\x1b.jennah.v1.SubmitJobRequest\x1a\x1c.jennah.v1.SubmitJobResponse\x12C\n" +
-	"\bListJobs\x12\x1a.jennah.v1.ListJobsRequest\x1a\x1b.jennah.v1.ListJobsResponseB\x1bZ\x19jennah/gen/proto;jennahv1b\x06proto3"
+	"\bListJobs\x12\x1a.jennah.v1.ListJobsRequest\x1a\x1b.jennah.v1.ListJobsResponseB2Z0github.com/alphauslabs/jennah/gen/proto;jennahv1b\x06proto3"
 
 var (
 	file_proto_jennah_proto_rawDescOnce sync.Once
