@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package jennah.v1;
+
+
+option go_package = "jennah/gen/proto;jennahv1";
+
+
+service DeploymentService {
+  rpc SubmitJob(SubmitJobRequest) returns (SubmitJobResponse);
+  rpc ListJobs(ListJobsRequest) returns (ListJobsResponse);
+}
+
+message SubmitJobRequest {
+  string tenant_id = 1;
+  string image_uri = 2;
+  map<string, string> env_vars = 3; // Example: { "DB_HOST": "10.0.0.1", "DEBUG": "true" }
+}
+
+message SubmitJobResponse {
+  string job_id = 1;
+  string status = 2; 
+  string worker_assigned = 3;
+}
+
+message ListJobsRequest {
+  string tenant_id = 1;
+}
+
+message ListJobsResponse {
+  repeated Job jobs = 1;
+}
+
+message Job {
+  string job_id = 1;
+  string tenant_id = 2;
+  string image_uri = 3;
+  string status = 4;
+  string created_at = 5;
+}
