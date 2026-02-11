@@ -52,10 +52,10 @@ func (s *WorkerServer) SubmitJob(
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("image_uri is required"))
 	}
 
-	jobID := uuid.New().String()
-	log.Printf("Generated job ID: %s", jobID)
+	jobId := uuid.New().String()
+	log.Printf("Generated job ID: %s", jobId)
 
-	err := s.dbClient.InsertJob(ctx, req.Msg.TenantId, jobID, req.Msg.ImageUri, []string{})
+	err := s.dbClient.InsertJob(ctx, req.Msg.TenantId, jobId, req.Msg.ImageUri, []string{})
 	if err != nil {
 		log.Printf("Error inserting job to database: %v", err)
 		return nil, connect.NewError(
@@ -63,12 +63,12 @@ func (s *WorkerServer) SubmitJob(
 			fmt.Errorf("failed to create job record: %w", err),
 		)
 	}
-	log.Printf("Job %s saved to database with PENDING status", jobID)
+	log.Printf("Job %s saved to database with PENDING status", jobId)
 
-	batchJob, err := s.createGCPBatchJob(ctx, jobID, req.Msg.ImageUri, req.Msg.EnvVars)
+	batchJob, err := s.createGCPBatchJob(ctx, jobId, req.Msg.ImageUri, req.Msg.EnvVars)
 	if err != nil {
 		log.Printf("Error creating GCP Batch job: %v", err)
-		failErr := s.dbClient.FailJob(ctx, req.Msg.TenantId, jobID, err.Error())
+		failErr := s.dbClient.FailJob(ctx, req.Msg.TenantId, jobId, err.Error())
 		if failErr != nil {
 			log.Printf("Error updating job status to FAILED: %v", failErr)
 		}
@@ -79,7 +79,7 @@ func (s *WorkerServer) SubmitJob(
 	}
 	log.Printf("GCP Batch job created: %s", batchJob.Name)
 
-	err = s.dbClient.UpdateJobStatus(ctx, req.Msg.TenantId, jobID, database.JobStatusRunning)
+	err = s.dbClient.UpdateJobStatus(ctx, req.Msg.TenantId, jobId, database.JobStatusRunning)
 	if err != nil {
 		log.Printf("Error updating job status to RUNNING: %v", err)
 		return nil, connect.NewError(
@@ -87,14 +87,14 @@ func (s *WorkerServer) SubmitJob(
 			fmt.Errorf("failed to update job status: %w", err),
 		)
 	}
-	log.Printf("Job %s status updated to RUNNING", jobID)
+	log.Printf("Job %s status updated to RUNNING", jobId)
 
 	response := connect.NewResponse(&jennahv1.SubmitJobResponse{
-		JobId:  jobID,
+		JobId:  jobId,
 		Status: database.JobStatusRunning,
 	})
 
-	log.Printf("Successfully submitted job %s for tenant %s", jobID, req.Msg.TenantId)
+	log.Printf("Successfully submitted job %s for tenant %s", jobId, req.Msg.TenantId)
 	return response, nil
 }
 
@@ -103,7 +103,6 @@ func (s *WorkerServer) ListJobs(
 	req *connect.Request[jennahv1.ListJobsRequest],
 ) (*connect.Response[jennahv1.ListJobsResponse], error) {
 	log.Printf("Received ListJobs request for tenant: %s", req.Msg.TenantId)
-
 	if req.Msg.TenantId == "" {
 		log.Printf("Error: tenant_id is empty")
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("tenant_id is required"))
