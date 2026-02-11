@@ -17,10 +17,10 @@ import (
 
 // Hardcoded config for now - will be moved to env vars or config file in the future
 const (
-	projectID       = "labs-169405"
+	projectId       = "labs-169405"
 	region          = "asia-northeast1"
 	spannerInstance = "alphaus-dev"
-	spannerDB       = "main"
+	spannerDb       = "main"
 	workerPort      = "8081"
 )
 
@@ -29,12 +29,12 @@ func main() {
 
 	ctx := context.Background()
 
-	dbClient, err := database.NewClient(ctx, projectID, spannerInstance, spannerDB)
+	dbClient, err := database.NewClient(ctx, projectId, spannerInstance, spannerDb)
 	if err != nil {
 		log.Fatalf("Failed to create database client: %v", err)
 	}
 	defer dbClient.Close()
-	log.Printf("Connected to Spanner: %s/%s/%s", projectID, spannerInstance, spannerDB)
+	log.Printf("Connected to Spanner: %s/%s/%s", projectId, spannerInstance, spannerDb)
 
 	batchClient, err := batch.NewClient(ctx)
 	if err != nil {
@@ -46,7 +46,7 @@ func main() {
 	workerServer := &WorkerServer{
 		dbClient:    dbClient,
 		batchClient: batchClient,
-		projectId:   projectID,
+		projectId:   projectId,
 		region:      region,
 	}
 
@@ -76,7 +76,7 @@ func main() {
 		log.Printf("  • POST %sSubmitJob", path)
 		log.Printf("  • POST %sListJobs", path)
 		log.Printf("  • GET  /health")
-		log.Printf("Worker configured for project: %s, region: %s", projectID, region)
+		log.Printf("Worker configured for project: %s, region: %s", projectId, region)
 		log.Println("")
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
