@@ -30,6 +30,7 @@ export SPANNER_DATABASE=main
 ## Prerequisites
 
 1. **GCP Authentication**
+
    ```bash
    gcloud auth application-default login
    ```
@@ -46,7 +47,7 @@ export SPANNER_DATABASE=main
 
 4. **Cloud Spanner Database**
    - Database schema must be deployed (see [/database/schema.sql](/database/schema.sql))
-   - Tenants table must exist
+   - Tenants are automatically created on first job submission if they don't exist
 
 ## Building
 
@@ -100,8 +101,8 @@ curl http://localhost:8081/health
 ```bash
 curl -X POST http://localhost:8081/jennah.v1.DeploymentService/SubmitJob \
   -H "Content-Type: application/json" \
+  -H "X-Tenant-Id: test-tenant" \
   -d '{
-    "tenant_id": "tenant-123",
     "image_uri": "gcr.io/labs-169405/my-app:latest",
     "env_vars": {
       "DATABASE_URL": "postgres://...",
@@ -111,9 +112,10 @@ curl -X POST http://localhost:8081/jennah.v1.DeploymentService/SubmitJob \
 ```
 
 **Response:**
+
 ```json
 {
-  "job_id": "550e8400-e29b-41d4-a716-446655440000",
+  "job_id": "f05e8617-e8a9-4c8a-bcbb-dd00a8333c04",
   "status": "RUNNING"
 }
 ```
@@ -123,16 +125,18 @@ curl -X POST http://localhost:8081/jennah.v1.DeploymentService/SubmitJob \
 ```bash
 curl -X POST http://localhost:8081/jennah.v1.DeploymentService/ListJobs \
   -H "Content-Type: application/json" \
-  -d '{"tenant_id": "tenant-123"}'
+  -H "X-Tenant-Id: test-tenant" \
+  -d '{}'
 ```
 
 **Response:**
+
 ```json
 {
   "jobs": [
     {
-      "job_id": "550e8400-e29b-41d4-a716-446655440000",
-      "tenant_id": "tenant-123",
+      "job_id": "f05e8617-e8a9-4c8a-bcbb-dd00a8333c04",
+      "tenant_id": "test-tenant",
       "image_uri": "gcr.io/labs-169405/my-app:latest",
       "status": "RUNNING",
       "created_at": "2026-02-11T10:30:00Z"
@@ -161,11 +165,12 @@ Gateway (8080) → Worker (8081) → GCP Batch API → Compute Engine
 ### SubmitJob Handler Flow
 
 1. Validate `tenant_id` and `image_uri`
-2. Generate UUID for job ID
-3. Insert job record in Spanner with `PENDING` status
-4. Create GCP Batch job with container image and environment variables
-5. Update job status to `RUNNING` on success
-6. Return job ID and status to Gateway
+2. Ensure tenant exists (auto-create if missing due to INTERLEAVE IN PARENT constraint)
+3. Generate UUID for job ID
+4. Insert job record in Spanner with `PENDING` status
+5. Create GCP Batch job with container image and environment variables
+6. Update job status to `RUNNING` on success
+7. Return job ID and status to Gateway
 
 ### ListJobs Handler Flow
 
@@ -180,6 +185,7 @@ Gateway (8080) → Worker (8081) → GCP Batch API → Compute Engine
 Workers are discovered by the Gateway through hardcoded IP addresses (see [/cmd/gateway/main.go](/cmd/gateway/main.go)). The Gateway uses consistent hashing to route tenant requests to specific workers.
 
 **Gateway Worker Configuration (example):**
+
 ```go
 workerIPs := []string{
     "10.128.0.1",
@@ -189,6 +195,7 @@ workerIPs := []string{
 ```
 
 For local testing with Gateway+Worker, update Gateway's worker IPs to include `localhost` or your local IP:
+
 ```go
 workerIPs := []string{
     "127.0.0.1",  // Local worker
@@ -224,6 +231,7 @@ Workers create GCP Batch jobs with the following structure:
 ```
 
 Jobs are created with:
+
 - **Parent**: `projects/labs-169405/locations/asia-northeast1`
 - **Job ID**: UUID from job record
 - **Container**: User-specified image URI
@@ -234,17 +242,20 @@ Jobs are created with:
 ### Worker Won't Start
 
 **Error:** `Failed to create database client`
+
 - Ensure `gcloud auth application-default login` is completed
 - Verify Spanner instance and database exist
 - Check IAM permissions
 
 **Error:** `Failed to create GCP Batch client`
+
 - Ensure Batch API is enabled: `gcloud services enable batch.googleapis.com`
 - Verify authentication credentials have batch API access
 
 ### Job Creation Fails
 
 **Check Spanner:**
+
 ```bash
 # Verify job was created with PENDING status
 gcloud spanner databases execute-sql main \
@@ -253,11 +264,14 @@ gcloud spanner databases execute-sql main \
 ```
 
 **Check GCP Batch Console:**
+
 - Navigate to: https://console.cloud.google.com/batch/jobs?project=labs-169405
 - Filter by region: asia-northeast1
 - Look for job by UUID
 
 **Common Issues:**
+
+- Parent row missing error: Tenant is auto-created on first job submission (fixed by service)
 - Image URI not accessible (check Container Registry permissions)
 - Region quota exceeded (check asia-northeast1 quota)
 - Invalid environment variable format
@@ -265,6 +279,7 @@ gcloud spanner databases execute-sql main \
 ### Gateway Can't Reach Worker
 
 **Error:** Gateway logs show "worker failed to process job"
+
 - Verify worker is listening on port 8081: `netstat -tlnp | grep 8081`
 - Check firewall rules allow traffic on port 8081
 - Confirm Gateway's `workerIPs` list includes this worker's IP
@@ -273,6 +288,7 @@ gcloud spanner databases execute-sql main \
 ## Graceful Shutdown
 
 Worker handles `SIGINT` (Ctrl+C) and `SIGTERM` gracefully:
+
 - Stops accepting new connections
 - Completes in-flight requests (30s timeout)
 - Closes database and Batch API clients
