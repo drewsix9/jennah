@@ -10,17 +10,17 @@ import (
 )
 
 // InsertJob creates a new job
-func (c *Client) InsertJob(ctx context.Context, tenantID, jobID, imageUri string, commands []string) error {
+func (c *Client) InsertJob(ctx context.Context, tenantId, jobId, imageUri string, commands []string, gcpBatchJobName string) error {
 	_, err := c.client.Apply(ctx, []*spanner.Mutation{
-		spanner.Insert("Jobs",
-			[]string{"TenantId", "JobId", "Status", "ImageUri", "Commands", "CreatedAt", "UpdatedAt"},
-			[]interface{}{tenantID, jobID, JobStatusPending, imageUri, commands, spanner.CommitTimestamp, spanner.CommitTimestamp},
-		),
+		spanner.InsertOrUpdate("Jobs", []string{
+			"TenantId", "JobId", "Status", "ImageUri", "Commands", "GcpBatchJobName",
+			"CreatedAt", "UpdatedAt",
+		}, []interface{}{
+			tenantId, jobId, JobStatusPending, imageUri, commands, gcpBatchJobName,
+			spanner.CommitTimestamp, spanner.CommitTimestamp,
+		}),
 	})
-	if err != nil {
-		return fmt.Errorf("failed to insert job: %w", err)
-	}
-	return nil
+	return err
 }
 
 // GetJob retrieves a job by tenant ID and job ID

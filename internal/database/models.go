@@ -12,15 +12,16 @@ type Tenant struct {
 
 // Job represents a deployment job
 type Job struct {
-	TenantId     string     `spanner:"TenantId"`
-	JobId        string     `spanner:"JobId"`
-	Status       string     `spanner:"Status"`
-	ImageUri     string     `spanner:"ImageUri"`
-	Commands     []string   `spanner:"Commands"`
-	CreatedAt    time.Time  `spanner:"CreatedAt"`
-	UpdatedAt    time.Time  `spanner:"UpdatedAt"`
-	CompletedAt  *time.Time `spanner:"CompletedAt"`
-	ErrorMessage *string    `spanner:"ErrorMessage"`
+	TenantId        string    `spanner:"TenantId"`
+	JobId           string    `spanner:"JobId"`
+	Status          string    `spanner:"Status"`
+	ImageUri        string    `spanner:"ImageUri"`
+	Commands        []string  `spanner:"Commands"`
+	CreatedAt       time.Time `spanner:"CreatedAt"`
+	UpdatedAt       time.Time `spanner:"UpdatedAt"`
+	CompletedAt     time.Time `spanner:"CompletedAt"`
+	ErrorMessage    string    `spanner:"ErrorMessage"`
+	GcpBatchJobName string    `spanner:"GcpBatchJobName"` // Full GCP resource name
 }
 
 // JobStatus constants

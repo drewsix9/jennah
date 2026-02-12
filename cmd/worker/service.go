@@ -42,10 +42,23 @@ func (s *WorkerServer) SubmitJob(
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("image_uri is required"))
 	}
 
-	jobId := uuid.New().String()
-	log.Printf("Generated job Id: %s", jobId)
+	// Generate internal UUID for Spanner primary key
+	internalJobID := uuid.New().String()
+	log.Printf("Generated internal job ID: %s", internalJobID)
 
-	err := s.dbClient.InsertJob(ctx, tenantId, jobId, req.Msg.ImageUri, []string{})
+	// Generate GCP Batch-compliant job ID: lowercase, starts with letter, no underscores
+	batchJobID := "jennah-" + internalJobID[:8]
+	log.Printf("Generated GCP Batch job ID: %s", batchJobID)
+
+	// Construct full GCP Batch resource name
+	gcpBatchJobName := fmt.Sprintf(
+		"projects/%s/locations/%s/jobs/%s",
+		s.projectId, s.region, batchJobID,
+	)
+	log.Printf("Full GCP Batch resource name: %s", gcpBatchJobName)
+
+	// Insert job record with both identifiers
+	err := s.dbClient.InsertJob(ctx, tenantId, internalJobID, req.Msg.ImageUri, []string{}, gcpBatchJobName)
 	if err != nil {
 		log.Printf("Error inserting job to database: %v", err)
 		return nil, connect.NewError(
@@ -53,12 +66,13 @@ func (s *WorkerServer) SubmitJob(
 			fmt.Errorf("failed to create job record: %w", err),
 		)
 	}
-	log.Printf("Job %s saved to database with PENDING status", jobId)
+	log.Printf("Job %s saved to database with PENDING status", internalJobID)
 
-	batchJob, err := s.createGCPBatchJob(ctx, jobId, req.Msg.ImageUri, req.Msg.EnvVars)
+	// Create GCP Batch job using compliant ID
+	batchJob, err := s.createGCPBatchJob(ctx, batchJobID, req.Msg.ImageUri, req.Msg.EnvVars)
 	if err != nil {
 		log.Printf("Error creating GCP Batch job: %v", err)
-		failErr := s.dbClient.FailJob(ctx, tenantId, jobId, err.Error())
+		failErr := s.dbClient.FailJob(ctx, tenantId, internalJobID, err.Error())
 		if failErr != nil {
 			log.Printf("Error updating job status to FAILED: %v", failErr)
 		}
@@ -69,7 +83,7 @@ func (s *WorkerServer) SubmitJob(
 	}
 	log.Printf("GCP Batch job created: %s", batchJob.Name)
 
-	err = s.dbClient.UpdateJobStatus(ctx, tenantId, jobId, database.JobStatusRunning)
+	err = s.dbClient.UpdateJobStatus(ctx, tenantId, internalJobID, database.JobStatusRunning)
 	if err != nil {
 		log.Printf("Error updating job status to RUNNING: %v", err)
 		return nil, connect.NewError(
@@ -77,14 +91,14 @@ func (s *WorkerServer) SubmitJob(
 			fmt.Errorf("failed to update job status: %w", err),
 		)
 	}
-	log.Printf("Job %s status updated to RUNNING", jobId)
+	log.Printf("Job %s status updated to RUNNING", internalJobID)
 
 	response := connect.NewResponse(&jennahv1.SubmitJobResponse{
-		JobId:  jobId,
+		JobId:  internalJobID, // Return internal UUID to client
 		Status: database.JobStatusRunning,
 	})
 
-	log.Printf("Successfully submitted job %s for tenant %s", jobId, tenantId)
+	log.Printf("Successfully submitted job %s for tenant %s", internalJobID, tenantId)
 	return response, nil
 }
 

@@ -15,6 +15,7 @@ CREATE TABLE Jobs (
   UpdatedAt TIMESTAMP NOT NULL OPTIONS (allow_commit_timestamp=true),
   CompletedAt TIMESTAMP,
   ErrorMessage STRING(MAX),
+  GcpBatchJobName STRING(1024),  -- Full GCP Batch resource name (projects/.../jobs/jennah-xxx)
 ) PRIMARY KEY (TenantId, JobId),
   INTERLEAVE IN PARENT Tenants ON DELETE CASCADE;
 
