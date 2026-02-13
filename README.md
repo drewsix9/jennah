@@ -24,7 +24,7 @@
 ```bash
    $ make gw-docker-run
 ```
-#### BPush gateway to registry:
+#### Push gateway to registry:
 ```bash
    $ make gw-docker-push
 ```
