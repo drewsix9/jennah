@@ -19,7 +19,7 @@ func extractOAuthUser(headers http.Header) (*OAuthUser, error) {
 	if email == "" || oauthUserId == "" || provider == "" {
 		return nil, errors.New("missing required OAuth headers")
 	}
-	test := false
+
 	return &OAuthUser{
 		Email:    email,
 		UserId:   oauthUserId,
