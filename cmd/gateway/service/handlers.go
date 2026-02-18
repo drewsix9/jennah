@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"connectrpc.com/connect"
 
@@ -67,12 +68,16 @@ func (s *GatewayService) SubmitJob(
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("imageUri is required"))
 	}
 
-	workerIP := s.router.GetWorkerIP(tenantId)
+	//workerIP := s.router.GetWorkerIP(tenantId)
+
+	//create unique routing key for each job submission to ensure better load distribution across workers
+	routingKey := fmt.Sprintf("%s-%d", tenantId, time.Now().UnixNano())
+	workerIP := s.router.GetWorkerIP(routingKey)
 	if workerIP == "" {
-		log.Printf("No worker found for tenantId: %s", tenantId)
-		return nil, connect.NewError(connect.CodeInternal, errors.New("no worker found for tenantId"))
+		log.Printf("No worker found for routingKey: %s", routingKey)
+		return nil, connect.NewError(connect.CodeInternal, errors.New("no worker found for routingKey"))
 	}
-	log.Printf("Selected worker: %s for tenant: %s", workerIP, tenantId)
+	log.Printf("Selected worker: %s for tenant (routing key: %s)", workerIP, routingKey)
 
 	workerClient, exists := s.workerClients[workerIP]
 	if !exists {
