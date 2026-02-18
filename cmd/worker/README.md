@@ -1,52 +1,171 @@
 # Worker Service
 
-The Worker service orchestrates GCP Batch jobs and manages job lifecycle in Cloud Spanner. It serves as the execution layer between the Gateway and GCP Batch API.
+The Worker service orchestrates cloud batch jobs and manages job lifecycle in the database. It serves as the execution layer between the Gateway and cloud batch APIs (GCP Batch, AWS Batch, Azure Batch).
 
 ## Overview
 
-The Worker receives job submission requests from the Gateway via ConnectRPC, creates corresponding GCP Batch jobs, and persists job metadata to Cloud Spanner. Workers listen on port 8081 and handle tenant-specific workloads based on consistent hashing routing from the Gateway.
+The Worker receives job submission requests from the Gateway via ConnectRPC, creates corresponding batch jobs on the configured cloud provider, and persists job metadata to the database. Workers listen on port 8081 (configurable) and handle tenant-specific workloads based on consistent hashing routing from the Gateway.
 
 ## Configuration
 
-### Constants (Default Values)
+The Worker is now provider-agnostic and configured entirely via environment variables.
 
-- **Project ID**: `labs-169405`
-- **Region**: `asia-northeast1`
-- **Spanner Instance**: `alphaus-dev`
-- **Spanner Database**: `main`
-- **Worker Port**: `8081`
+### Required Environment Variables
 
-### Environment Variables (Optional)
+#### Batch Provider Configuration
 
-Override default configuration using environment variables:
+| Variable         | Description         | Example                                    |
+| ---------------- | ------------------- | ------------------------------------------ |
+| `BATCH_PROVIDER` | Cloud provider name | `gcp`, `aws`, `azure`                      |
+| `BATCH_REGION`   | Cloud region        | `asia-northeast1` (GCP), `us-east-1` (AWS) |
+
+#### Provider-Specific Variables
+
+**GCP:**
+
+- `BATCH_PROJECT_ID`: GCP project ID (e.g., `labs-169405`)
+
+**AWS:**
+
+- `AWS_ACCOUNT_ID`: AWS account ID
+- `AWS_JOB_QUEUE`: AWS Batch job queue name
+
+**Azure:**
+
+- `AZURE_SUBSCRIPTION_ID`: Azure subscription ID
+- `AZURE_RESOURCE_GROUP`: Azure resource group name
+
+#### Database Configuration
+
+| Variable        | Description                      | Example                           |
+| --------------- | -------------------------------- | --------------------------------- |
+| `DB_PROVIDER`   | Database provider                | `spanner`, `dynamodb`, `postgres` |
+| `DB_PROJECT_ID` | Database project ID (Spanner)    | `labs-169405`                     |
+| `DB_INSTANCE`   | Database instance name (Spanner) | `alphaus-dev`                     |
+| `DB_DATABASE`   | Database name                    | `main`                            |
+
+#### Server Configuration
+
+| Variable      | Description      | Default |
+| ------------- | ---------------- | ------- |
+| `WORKER_PORT` | HTTP server port | `8081`  |
+
+## Running the Worker
+
+### Option 1: Direct Execution (Development)
+
+1. **Set environment variables:**
+
+   ```bash
+   export BATCH_PROVIDER=gcp
+   export BATCH_PROJECT_ID=labs-169405
+   export BATCH_REGION=asia-northeast1
+   export DB_PROVIDER=spanner
+   export DB_PROJECT_ID=labs-169405
+   export DB_INSTANCE=alphaus-dev
+   export DB_DATABASE=main
+   ```
+
+2. **Run the worker:**
+   ```bash
+   go run ./cmd/worker/
+   ```
+
+### Option 2: Inline Environment Variables
 
 ```bash
-export GCP_PROJECT=labs-169405
-export GCP_REGION=asia-northeast1
-export SPANNER_INSTANCE=alphaus-dev
-export SPANNER_DATABASE=main
+BATCH_PROVIDER=gcp \
+BATCH_PROJECT_ID=labs-169405 \
+BATCH_REGION=asia-northeast1 \
+DB_PROVIDER=spanner \
+DB_PROJECT_ID=labs-169405 \
+DB_INSTANCE=alphaus-dev \
+DB_DATABASE=main \
+go run ./cmd/worker/
+```
+
+### Option 3: Docker (Production)
+
+1. **Build the Docker image:**
+
+   ```bash
+   docker build -f Dockerfile.worker -t jennah-worker:latest .
+   ```
+
+2. **Run with environment variables:**
+
+   ```bash
+   docker run -p 8081:8081 \
+     -e BATCH_PROVIDER=gcp \
+     -e BATCH_PROJECT_ID=labs-169405 \
+     -e BATCH_REGION=asia-northeast1 \
+     -e DB_PROVIDER=spanner \
+     -e DB_PROJECT_ID=labs-169405 \
+     -e DB_INSTANCE=alphaus-dev \
+     -e DB_DATABASE=main \
+     jennah-worker:latest
+   ```
+
+3. **Or use env-file:**
+   ```bash
+   docker run -p 8081:8081 --env-file .env jennah-worker:latest
+   ```
+
+### Option 4: Cloud Run Deployment
+
+```bash
+# Build and push to Artifact Registry
+docker build -f Dockerfile.worker -t asia-docker.pkg.dev/labs-169405/jennah/worker:latest .
+docker push asia-docker.pkg.dev/labs-169405/jennah/worker:latest
+
+# Deploy to Cloud Run
+gcloud run deploy jennah-worker \
+  --image=asia-docker.pkg.dev/labs-169405/jennah/worker:latest \
+  --region=asia-northeast1 \
+  --set-env-vars="BATCH_PROVIDER=gcp,BATCH_PROJECT_ID=labs-169405,BATCH_REGION=asia-northeast1,DB_PROVIDER=spanner,DB_PROJECT_ID=labs-169405,DB_INSTANCE=alphaus-dev,DB_DATABASE=main"
 ```
 
 ## Prerequisites
 
-1. **GCP Authentication**
+1. **Cloud Authentication**
+
+   **GCP:**
 
    ```bash
    gcloud auth application-default login
    ```
 
-2. **Required GCP APIs Enabled**
-   - Cloud Spanner API
-   - Batch API
+   **AWS:**
+
+   ```bash
+   aws configure
+   ```
+
+   **Azure:**
+
+   ```bash
+   az login
+   ```
+
+2. **Required Cloud APIs Enabled**
+   - **GCP**: Cloud Spanner API, Batch API
+   - **AWS**: AWS Batch, DynamoDB (if using)
+   - **Azure**: Azure Batch, Cosmos DB (if using)
 
 3. **IAM Permissions**
-   Required permissions for the service account:
+
+   **GCP:**
    - `spanner.databaseUser` on the Spanner database
    - `batch.jobs.create` on the project
    - `batch.jobs.get` on the project
 
-4. **Cloud Spanner Database**
+   **AWS:**
+   - `batch:SubmitJob`, `batch:DescribeJobs`, etc.
+   - DynamoDB table access
+
+4. **Database**
    - Database schema must be deployed (see [/database/schema.sql](/database/schema.sql))
+   - Run migration: [/database/migrate-cloud-resource-path.sql](/database/migrate-cloud-resource-path.sql)
    - Tenants are automatically created on first job submission if they don't exist
 
 ## Building

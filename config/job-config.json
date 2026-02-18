@@ -1,0 +1,29 @@
+{
+  "defaultResources": {
+    "cpuMillis": 2000,
+    "memoryMiB": 4096,
+    "maxRunDurationSeconds": 3600
+  },
+  "resourceProfiles": {
+    "small": {
+      "cpuMillis": 1000,
+      "memoryMiB": 2048,
+      "maxRunDurationSeconds": 1800
+    },
+    "medium": {
+      "cpuMillis": 2000,
+      "memoryMiB": 4096,
+      "maxRunDurationSeconds": 3600
+    },
+    "large": {
+      "cpuMillis": 4000,
+      "memoryMiB": 8192,
+      "maxRunDurationSeconds": 7200
+    },
+    "xlarge": {
+      "cpuMillis": 8000,
+      "memoryMiB": 16384,
+      "maxRunDurationSeconds": 14400
+    }
+  }
+}
