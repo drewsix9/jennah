@@ -173,15 +173,22 @@ export WORKER_PORT=8081
 
 ### Database Schema Migration
 
-The database schema was updated to be cloud-agnostic:
+The database schema stores cloud provider-specific job identifiers:
 
-**Migration Script**: `database/migrate-cloud-resource-path.sql`
+**Current Schema**: Jobs table includes:
+
+- `GcpBatchJobName` (STRING): GCP Batch job resource path (e.g., `projects/labs-169405/locations/asia-northeast1/jobs/jennah-abc12345`)
+- `GcpBatchTaskGroup` (STRING): GCP Batch task group identifier for tracking task status
+- `EnvVars` (ARRAY<STRUCT>): Environment variables passed to the job
+
+**Provider Interface**: The Provider interface uses `cloudResourcePath` as a parameter to abstract the database column names, allowing multi-cloud support.
 
 ```sql
-ALTER TABLE Jobs RENAME COLUMN GcpBatchJobName TO CloudJobResourcePath;
+-- Current Schema (GCP-optimized)
+GcpBatchJobName STRING(1024),
+GcpBatchTaskGroup STRING(1024),
+EnvVars ARRAY<STRUCT<Key STRING(255), Value STRING(MAX)>>,
 ```
-
-**Run Migration**:
 
 ```bash
 # Using gcloud spanner

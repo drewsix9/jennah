@@ -93,13 +93,13 @@ func (s *WorkerServer) SubmitJob(
 	}
 	log.Printf("Batch job created: %s", jobResult.CloudResourcePath)
 
-	// Update job status and cloud resource path based on provider's initial status
+	// Update job status and GCP Batch job name based on provider's initial status
 	statusToSet := string(jobResult.InitialStatus)
 	if statusToSet == "" || statusToSet == string(batch.JobStatusUnknown) {
 		statusToSet = database.JobStatusRunning
 	}
 
-	err = s.dbClient.UpdateJobStatusAndCloudPath(ctx, tenantId, internalJobID, statusToSet, jobResult.CloudResourcePath)
+	err = s.dbClient.UpdateJobStatusAndGcpBatchJobName(ctx, tenantId, internalJobID, statusToSet, jobResult.CloudResourcePath)
 	if err != nil {
 		log.Printf("Error updating job status to %s: %v", statusToSet, err)
 		return nil, connect.NewError(
@@ -107,7 +107,7 @@ func (s *WorkerServer) SubmitJob(
 			fmt.Errorf("failed to update job status: %w", err),
 		)
 	}
-	log.Printf("Job %s status updated to %s with cloud path: %s", internalJobID, statusToSet, jobResult.CloudResourcePath)
+	log.Printf("Job %s status updated to %s with GCP Batch job name: %s", internalJobID, statusToSet, jobResult.CloudResourcePath)
 
 	response := connect.NewResponse(&jennahv1.SubmitJobResponse{
 		JobId:  internalJobID, // Return internal UUID to client
