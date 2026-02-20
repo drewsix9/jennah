@@ -1416,41 +1416,6 @@ func parseNullTime(v *proto3.Value, p *NullTime, code sppb.TypeCode, isNull bool
 	return nil
 }
 
-// tryDecodePointerToDecoder attempts to decode a **T where *T implements Decoder
-// Returns (handled, error) - handled=true if this case was processed
-func tryDecodePointerToDecoder(ptr interface{}, t *sppb.Type, v *proto3.Value, isNull bool) (bool, error) {
-	rv := reflect.ValueOf(ptr)
-	if rv.Kind() != reflect.Ptr || rv.Type().Elem().Kind() != reflect.Ptr {
-		return false, nil
-	}
-
-	elemType := rv.Type().Elem().Elem()
-	if !reflect.PointerTo(elemType).Implements(reflect.TypeOf((*Decoder)(nil)).Elem()) {
-		return false, nil
-	}
-
-	if isNull {
-		rv.Elem().Set(reflect.Zero(rv.Elem().Type()))
-		return true, nil
-	}
-
-	// Create a new instance of the underlying type
-	newInstance := reflect.New(elemType)
-	if decodedVal, ok := newInstance.Interface().(Decoder); ok {
-		x, err := getGenericValue(t, v)
-		if err != nil {
-			return true, err
-		}
-		if err := decodedVal.DecodeSpanner(x); err != nil {
-			return true, err
-		}
-		rv.Elem().Set(newInstance)
-		return true, nil
-	}
-
-	return false, nil
-}
-
 // decodeValue decodes a protobuf Value into a pointer to a Go value, as
 // specified by sppb.Type.
 func decodeValue(v *proto3.Value, t *sppb.Type, ptr interface{}, opts ...DecodeOptions) error {
@@ -2505,10 +2470,6 @@ func decodeValue(v *proto3.Value, t *sppb.Type, ptr interface{}, opts ...DecodeO
 			}
 			return decodedVal.DecodeSpanner(x)
 		}
-		// Check if the pointer is a pointer to a pointer, and if the underlying type implements Decoder
-		if handled, err := tryDecodePointerToDecoder(ptr, t, v, isNull); handled {
-			return err
-		}
 		if p == nil {
 			return errNilDst(p)
 		}
@@ -2759,10 +2720,6 @@ func decodeValue(v *proto3.Value, t *sppb.Type, ptr interface{}, opts ...DecodeO
 				return err
 			}
 			return decodedVal.DecodeSpanner(x)
-		}
-		// Check if the pointer is a pointer to a pointer, and if the underlying type implements Decoder
-		if handled, err := tryDecodePointerToDecoder(ptr, t, v, isNull); handled {
-			return err
 		}
 
 		// Check if the pointer is a variant of a base type.
@@ -5592,30 +5549,12 @@ func encodeProtoEnumArray(len int, at func(int) reflect.Value) (*proto3.Value, e
 	return listProto(vs...), nil
 }
 
-// spannerTag contains metadata about a struct field's spanner tag.
-type spannerTag struct {
-	// ReadOnly is true if the field should be excluded from writes (read-only).
-	ReadOnly bool
-}
-
 func spannerTagParser(t reflect.StructTag) (name string, keep bool, other interface{}, err error) {
 	if s := t.Get("spanner"); s != "" {
 		if s == "-" {
 			return "", false, nil, nil
 		}
-		if s == "->" {
-			tag := spannerTag{ReadOnly: true}
-			return "", true, tag, nil
-		}
-		parts := strings.Split(s, ";")
-		name = parts[0]
-		tag := spannerTag{}
-		for _, part := range parts[1:] {
-			if part == "->" || strings.ToLower(part) == "readonly" {
-				tag.ReadOnly = true
-			}
-		}
-		return name, true, tag, nil
+		return s, true, nil, nil
 	}
 	return "", true, nil, nil
 }

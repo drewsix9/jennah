@@ -66,7 +66,6 @@ var (
 	allowedMetricLabels = map[string]bool{
 		metricLabelKeyGRPCLBPickResult:      true,
 		metricLabelKeyGRPCLBDataPlaneTarget: true,
-		metricLabelKeyGRPCXDSResourceType:   true,
 		metricLabelKeyClientUID:             true,
 		metricLabelKeyClientName:            true,
 		metricLabelKeyDatabase:              true,

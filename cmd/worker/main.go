@@ -66,6 +66,7 @@ func main() {
 		dbClient:      dbClient,
 		batchProvider: batchProvider,
 		jobConfig:     jobConfig,
+		pollers:       make(map[string]*JobPoller),
 	}
 
 	mux := http.NewServeMux()
@@ -105,6 +106,9 @@ func main() {
 
 	<-sigCtx.Done()
 	log.Println("Shutdown signal received, gracefully shutting down...")
+
+	// Stop all active job pollers
+	workerServer.StopAllPollers()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

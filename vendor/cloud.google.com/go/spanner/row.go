@@ -460,9 +460,6 @@ func SelectAll(rows rowIterator, destination interface{}, options ...DecodeOptio
 
 	isPrimitive := itemType.Kind() != reflect.Struct
 	var pointers []interface{}
-	var pointerIndexes [][]int
-	var pointerLookup map[string]int
-	var orderedPointers []interface{}
 	isFirstRow := true
 	var err error
 	return rows.Do(func(row *Row) error {
@@ -472,10 +469,9 @@ func SelectAll(rows rowIterator, destination interface{}, options ...DecodeOptio
 				defer func() {
 					isFirstRow = false
 				}()
-				if pointers, pointerIndexes, pointerLookup, err = structPointers(sliceItem.Elem(), row.fields, s.Lenient); err != nil {
+				if pointers, err = structPointers(sliceItem.Elem(), row.fields, s.Lenient); err != nil {
 					return err
 				}
-				orderedPointers = make([]interface{}, len(pointers))
 			}
 			defer func() {
 				for _, ptr := range pointers {
@@ -486,50 +482,28 @@ func SelectAll(rows rowIterator, destination interface{}, options ...DecodeOptio
 					}
 				}
 			}()
-			if len(orderedPointers) != len(row.fields) {
-				orderedPointers = make([]interface{}, len(row.fields))
-			}
-			for i, col := range row.fields {
-				idx, ok := pointerLookup[strings.ToLower(col.GetName())]
-				if !ok {
-					if !s.Lenient {
-						return errNoOrDupGoField(sliceItem.Elem(), col.GetName())
-					}
-					orderedPointers[i] = nil
-					continue
-				}
-				orderedPointers[i] = pointers[idx]
-			}
 		} else if isPrimitive {
 			if len(row.fields) > 1 && !s.Lenient {
 				return errTooManyColumns()
 			}
 			pointers = []interface{}{sliceItem.Interface()}
 		}
-		var rowPointers []interface{}
-		if !isPrimitive {
-			rowPointers = orderedPointers
-		} else {
-			rowPointers = pointers
-		}
-		if len(rowPointers) == 0 {
+		if len(pointers) == 0 {
 			return nil
 		}
-		err = row.Columns(rowPointers...)
+		err = row.Columns(pointers...)
 		if err != nil {
 			return err
 		}
 		if !isPrimitive {
 			e := sliceItem.Elem()
-			for i, p := range pointers {
+			idx := 0
+			for _, p := range pointers {
 				if p == nil {
 					continue
 				}
-				indexPath := pointerIndexes[i]
-				if len(indexPath) == 0 {
-					continue
-				}
-				e.FieldByIndex(indexPath).Set(reflect.ValueOf(p).Elem())
+				e.Field(idx).Set(reflect.ValueOf(p).Elem())
+				idx++
 			}
 		}
 		var elemVal reflect.Value
@@ -550,53 +524,40 @@ func SelectAll(rows rowIterator, destination interface{}, options ...DecodeOptio
 	})
 }
 
-type fieldInfo struct {
-	value     reflect.Value
-	indexPath []int
-}
-
-func structPointers(sliceItem reflect.Value, cols []*sppb.StructType_Field, lenient bool) ([]interface{}, [][]int, map[string]int, error) {
+func structPointers(sliceItem reflect.Value, cols []*sppb.StructType_Field, lenient bool) ([]interface{}, error) {
 	pointers := make([]interface{}, 0, len(cols))
-	indexes := make([][]int, 0, len(cols))
-	fieldTag := make(map[string]fieldInfo, len(cols))
-	initFieldTag(sliceItem, &fieldTag, nil)
-	lookup := make(map[string]int, len(cols))
+	fieldTag := make(map[string]reflect.Value, len(cols))
+	initFieldTag(sliceItem, &fieldTag)
 
 	for i, colName := range cols {
 		if colName.Name == "" {
-			return nil, nil, nil, errColNotFound(fmt.Sprintf("column %d", i))
+			return nil, errColNotFound(fmt.Sprintf("column %d", i))
 		}
 
-		var info fieldInfo
-		var ok bool
-		if info, ok = fieldTag[strings.ToLower(colName.GetName())]; !ok {
+		var fieldVal reflect.Value
+		if v, ok := fieldTag[strings.ToLower(colName.GetName())]; ok {
+			fieldVal = v
+		} else {
 			if !lenient {
-				return nil, nil, nil, errNoOrDupGoField(sliceItem, colName.GetName())
+				return nil, errNoOrDupGoField(sliceItem, colName.GetName())
 			}
-			if structField, okField := sliceItem.Type().FieldByName(colName.GetName()); okField {
-				fieldVal := sliceItem.FieldByIndex(structField.Index)
-				if fieldVal.CanSet() {
-					info = fieldInfo{value: fieldVal, indexPath: append([]int(nil), structField.Index...)}
-				}
-			}
+			fieldVal = sliceItem.FieldByName(colName.GetName())
 		}
-
-		if !info.value.IsValid() || !info.value.CanSet() {
+		if !fieldVal.IsValid() || !fieldVal.CanSet() {
+			// have to add if we found a column because Columns() requires
+			// len(cols) arguments or it will error. This way we can scan to
+			// a useless pointer
 			pointers = append(pointers, nil)
-			indexes = append(indexes, nil)
-			lookup[strings.ToLower(colName.GetName())] = len(pointers) - 1
 			continue
 		}
 
-		pointers = append(pointers, info.value.Addr().Interface())
-		indexes = append(indexes, info.indexPath)
-		lookup[strings.ToLower(colName.GetName())] = len(pointers) - 1
+		pointers = append(pointers, fieldVal.Addr().Interface())
 	}
-	return pointers, indexes, lookup, nil
+	return pointers, nil
 }
 
 // Initialization the tags from struct.
-func initFieldTag(sliceItem reflect.Value, fieldTagMap *map[string]fieldInfo, path []int) {
+func initFieldTag(sliceItem reflect.Value, fieldTagMap *map[string]reflect.Value) {
 	typ := sliceItem.Type()
 
 	for i := 0; i < sliceItem.NumField(); i++ {
@@ -608,12 +569,11 @@ func initFieldTag(sliceItem reflect.Value, fieldTagMap *map[string]fieldInfo, pa
 		if !exported && !fieldType.Anonymous {
 			continue
 		}
-		currentPath := append(path, i)
 		if fieldType.Type.Kind() == reflect.Struct {
 			// found an embedded struct
 			if fieldType.Anonymous {
 				sliceItemOfAnonymous := sliceItem.Field(i)
-				initFieldTag(sliceItemOfAnonymous, fieldTagMap, currentPath)
+				initFieldTag(sliceItemOfAnonymous, fieldTagMap)
 				continue
 			}
 		}
@@ -624,9 +584,6 @@ func initFieldTag(sliceItem reflect.Value, fieldTagMap *map[string]fieldInfo, pa
 		if name == "" {
 			name = fieldType.Name
 		}
-		(*fieldTagMap)[strings.ToLower(name)] = fieldInfo{
-			value:     sliceItem.Field(i),
-			indexPath: append([]int(nil), currentPath...),
-		}
+		(*fieldTagMap)[strings.ToLower(name)] = sliceItem.Field(i)
 	}
 }

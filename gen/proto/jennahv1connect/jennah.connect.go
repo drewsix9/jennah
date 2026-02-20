@@ -42,6 +42,12 @@ const (
 	// DeploymentServiceGetCurrentTenantProcedure is the fully-qualified name of the DeploymentService's
 	// GetCurrentTenant RPC.
 	DeploymentServiceGetCurrentTenantProcedure = "/jennah.v1.DeploymentService/GetCurrentTenant"
+	// DeploymentServiceCancelJobProcedure is the fully-qualified name of the DeploymentService's
+	// CancelJob RPC.
+	DeploymentServiceCancelJobProcedure = "/jennah.v1.DeploymentService/CancelJob"
+	// DeploymentServiceDeleteJobProcedure is the fully-qualified name of the DeploymentService's
+	// DeleteJob RPC.
+	DeploymentServiceDeleteJobProcedure = "/jennah.v1.DeploymentService/DeleteJob"
 )
 
 // DeploymentServiceClient is a client for the jennah.v1.DeploymentService service.
@@ -52,6 +58,10 @@ type DeploymentServiceClient interface {
 	ListJobs(context.Context, *connect.Request[proto.ListJobsRequest]) (*connect.Response[proto.ListJobsResponse], error)
 	// Get the current tenant's information.
 	GetCurrentTenant(context.Context, *connect.Request[proto.GetCurrentTenantRequest]) (*connect.Response[proto.GetCurrentTenantResponse], error)
+	// Cancel a job (only for PENDING, SCHEDULED, or RUNNING states).
+	CancelJob(context.Context, *connect.Request[proto.CancelJobRequest]) (*connect.Response[proto.CancelJobResponse], error)
+	// Delete a job from the system.
+	DeleteJob(context.Context, *connect.Request[proto.DeleteJobRequest]) (*connect.Response[proto.DeleteJobResponse], error)
 }
 
 // NewDeploymentServiceClient constructs a client for the jennah.v1.DeploymentService service. By
@@ -83,6 +93,18 @@ func NewDeploymentServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(deploymentServiceMethods.ByName("GetCurrentTenant")),
 			connect.WithClientOptions(opts...),
 		),
+		cancelJob: connect.NewClient[proto.CancelJobRequest, proto.CancelJobResponse](
+			httpClient,
+			baseURL+DeploymentServiceCancelJobProcedure,
+			connect.WithSchema(deploymentServiceMethods.ByName("CancelJob")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteJob: connect.NewClient[proto.DeleteJobRequest, proto.DeleteJobResponse](
+			httpClient,
+			baseURL+DeploymentServiceDeleteJobProcedure,
+			connect.WithSchema(deploymentServiceMethods.ByName("DeleteJob")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -91,6 +113,8 @@ type deploymentServiceClient struct {
 	submitJob        *connect.Client[proto.SubmitJobRequest, proto.SubmitJobResponse]
 	listJobs         *connect.Client[proto.ListJobsRequest, proto.ListJobsResponse]
 	getCurrentTenant *connect.Client[proto.GetCurrentTenantRequest, proto.GetCurrentTenantResponse]
+	cancelJob        *connect.Client[proto.CancelJobRequest, proto.CancelJobResponse]
+	deleteJob        *connect.Client[proto.DeleteJobRequest, proto.DeleteJobResponse]
 }
 
 // SubmitJob calls jennah.v1.DeploymentService.SubmitJob.
@@ -108,6 +132,16 @@ func (c *deploymentServiceClient) GetCurrentTenant(ctx context.Context, req *con
 	return c.getCurrentTenant.CallUnary(ctx, req)
 }
 
+// CancelJob calls jennah.v1.DeploymentService.CancelJob.
+func (c *deploymentServiceClient) CancelJob(ctx context.Context, req *connect.Request[proto.CancelJobRequest]) (*connect.Response[proto.CancelJobResponse], error) {
+	return c.cancelJob.CallUnary(ctx, req)
+}
+
+// DeleteJob calls jennah.v1.DeploymentService.DeleteJob.
+func (c *deploymentServiceClient) DeleteJob(ctx context.Context, req *connect.Request[proto.DeleteJobRequest]) (*connect.Response[proto.DeleteJobResponse], error) {
+	return c.deleteJob.CallUnary(ctx, req)
+}
+
 // DeploymentServiceHandler is an implementation of the jennah.v1.DeploymentService service.
 type DeploymentServiceHandler interface {
 	// Submit a job for deployment.
@@ -116,6 +150,10 @@ type DeploymentServiceHandler interface {
 	ListJobs(context.Context, *connect.Request[proto.ListJobsRequest]) (*connect.Response[proto.ListJobsResponse], error)
 	// Get the current tenant's information.
 	GetCurrentTenant(context.Context, *connect.Request[proto.GetCurrentTenantRequest]) (*connect.Response[proto.GetCurrentTenantResponse], error)
+	// Cancel a job (only for PENDING, SCHEDULED, or RUNNING states).
+	CancelJob(context.Context, *connect.Request[proto.CancelJobRequest]) (*connect.Response[proto.CancelJobResponse], error)
+	// Delete a job from the system.
+	DeleteJob(context.Context, *connect.Request[proto.DeleteJobRequest]) (*connect.Response[proto.DeleteJobResponse], error)
 }
 
 // NewDeploymentServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -143,6 +181,18 @@ func NewDeploymentServiceHandler(svc DeploymentServiceHandler, opts ...connect.H
 		connect.WithSchema(deploymentServiceMethods.ByName("GetCurrentTenant")),
 		connect.WithHandlerOptions(opts...),
 	)
+	deploymentServiceCancelJobHandler := connect.NewUnaryHandler(
+		DeploymentServiceCancelJobProcedure,
+		svc.CancelJob,
+		connect.WithSchema(deploymentServiceMethods.ByName("CancelJob")),
+		connect.WithHandlerOptions(opts...),
+	)
+	deploymentServiceDeleteJobHandler := connect.NewUnaryHandler(
+		DeploymentServiceDeleteJobProcedure,
+		svc.DeleteJob,
+		connect.WithSchema(deploymentServiceMethods.ByName("DeleteJob")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/jennah.v1.DeploymentService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case DeploymentServiceSubmitJobProcedure:
@@ -151,6 +201,10 @@ func NewDeploymentServiceHandler(svc DeploymentServiceHandler, opts ...connect.H
 			deploymentServiceListJobsHandler.ServeHTTP(w, r)
 		case DeploymentServiceGetCurrentTenantProcedure:
 			deploymentServiceGetCurrentTenantHandler.ServeHTTP(w, r)
+		case DeploymentServiceCancelJobProcedure:
+			deploymentServiceCancelJobHandler.ServeHTTP(w, r)
+		case DeploymentServiceDeleteJobProcedure:
+			deploymentServiceDeleteJobHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -170,4 +224,12 @@ func (UnimplementedDeploymentServiceHandler) ListJobs(context.Context, *connect.
 
 func (UnimplementedDeploymentServiceHandler) GetCurrentTenant(context.Context, *connect.Request[proto.GetCurrentTenantRequest]) (*connect.Response[proto.GetCurrentTenantResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("jennah.v1.DeploymentService.GetCurrentTenant is not implemented"))
+}
+
+func (UnimplementedDeploymentServiceHandler) CancelJob(context.Context, *connect.Request[proto.CancelJobRequest]) (*connect.Response[proto.CancelJobResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("jennah.v1.DeploymentService.CancelJob is not implemented"))
+}
+
+func (UnimplementedDeploymentServiceHandler) DeleteJob(context.Context, *connect.Request[proto.DeleteJobRequest]) (*connect.Response[proto.DeleteJobResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("jennah.v1.DeploymentService.DeleteJob is not implemented"))
 }

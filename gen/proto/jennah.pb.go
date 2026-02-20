@@ -478,6 +478,198 @@ func (x *GetCurrentTenantResponse) GetCreatedAt() string {
 	return ""
 }
 
+type CancelJobRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelJobRequest) Reset() {
+	*x = CancelJobRequest{}
+	mi := &file_proto_jennah_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelJobRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelJobRequest) ProtoMessage() {}
+
+func (x *CancelJobRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_jennah_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelJobRequest.ProtoReflect.Descriptor instead.
+func (*CancelJobRequest) Descriptor() ([]byte, []int) {
+	return file_proto_jennah_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *CancelJobRequest) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+type CancelJobResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelJobResponse) Reset() {
+	*x = CancelJobResponse{}
+	mi := &file_proto_jennah_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelJobResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelJobResponse) ProtoMessage() {}
+
+func (x *CancelJobResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_jennah_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelJobResponse.ProtoReflect.Descriptor instead.
+func (*CancelJobResponse) Descriptor() ([]byte, []int) {
+	return file_proto_jennah_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *CancelJobResponse) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+func (x *CancelJobResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+type DeleteJobRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteJobRequest) Reset() {
+	*x = DeleteJobRequest{}
+	mi := &file_proto_jennah_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteJobRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteJobRequest) ProtoMessage() {}
+
+func (x *DeleteJobRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_jennah_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteJobRequest.ProtoReflect.Descriptor instead.
+func (*DeleteJobRequest) Descriptor() ([]byte, []int) {
+	return file_proto_jennah_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *DeleteJobRequest) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+type DeleteJobResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteJobResponse) Reset() {
+	*x = DeleteJobResponse{}
+	mi := &file_proto_jennah_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteJobResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteJobResponse) ProtoMessage() {}
+
+func (x *DeleteJobResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_jennah_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteJobResponse.ProtoReflect.Descriptor instead.
+func (*DeleteJobResponse) Descriptor() ([]byte, []int) {
+	return file_proto_jennah_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *DeleteJobResponse) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+func (x *DeleteJobResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 var File_proto_jennah_proto protoreflect.FileDescriptor
 
 const file_proto_jennah_proto_rawDesc = "" +
@@ -518,11 +710,23 @@ const file_proto_jennah_proto_rawDesc = "" +
 	"user_email\x18\x02 \x01(\tR\tuserEmail\x12%\n" +
 	"\x0eoauth_provider\x18\x03 \x01(\tR\roauthProvider\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x04 \x01(\tR\tcreatedAt2\xfd\x01\n" +
+	"created_at\x18\x04 \x01(\tR\tcreatedAt\")\n" +
+	"\x10CancelJobRequest\x12\x15\n" +
+	"\x06job_id\x18\x01 \x01(\tR\x05jobId\"B\n" +
+	"\x11CancelJobResponse\x12\x15\n" +
+	"\x06job_id\x18\x01 \x01(\tR\x05jobId\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\")\n" +
+	"\x10DeleteJobRequest\x12\x15\n" +
+	"\x06job_id\x18\x01 \x01(\tR\x05jobId\"D\n" +
+	"\x11DeleteJobResponse\x12\x15\n" +
+	"\x06job_id\x18\x01 \x01(\tR\x05jobId\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage2\x8d\x03\n" +
 	"\x11DeploymentService\x12F\n" +
 	"\tSubmitJob\x12\x1b.jennah.v1.SubmitJobRequest\x1a\x1c.jennah.v1.SubmitJobResponse\x12C\n" +
 	"\bListJobs\x12\x1a.jennah.v1.ListJobsRequest\x1a\x1b.jennah.v1.ListJobsResponse\x12[\n" +
-	"\x10GetCurrentTenant\x12\".jennah.v1.GetCurrentTenantRequest\x1a#.jennah.v1.GetCurrentTenantResponseB2Z0github.com/alphauslabs/jennah/gen/proto;jennahv1b\x06proto3"
+	"\x10GetCurrentTenant\x12\".jennah.v1.GetCurrentTenantRequest\x1a#.jennah.v1.GetCurrentTenantResponse\x12F\n" +
+	"\tCancelJob\x12\x1b.jennah.v1.CancelJobRequest\x1a\x1c.jennah.v1.CancelJobResponse\x12F\n" +
+	"\tDeleteJob\x12\x1b.jennah.v1.DeleteJobRequest\x1a\x1c.jennah.v1.DeleteJobResponseB2Z0github.com/alphauslabs/jennah/gen/proto;jennahv1b\x06proto3"
 
 var (
 	file_proto_jennah_proto_rawDescOnce sync.Once
@@ -536,7 +740,7 @@ func file_proto_jennah_proto_rawDescGZIP() []byte {
 	return file_proto_jennah_proto_rawDescData
 }
 
-var file_proto_jennah_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_proto_jennah_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_proto_jennah_proto_goTypes = []any{
 	(*ResourceOverride)(nil),         // 0: jennah.v1.ResourceOverride
 	(*SubmitJobRequest)(nil),         // 1: jennah.v1.SubmitJobRequest
@@ -546,23 +750,31 @@ var file_proto_jennah_proto_goTypes = []any{
 	(*Job)(nil),                      // 5: jennah.v1.Job
 	(*GetCurrentTenantRequest)(nil),  // 6: jennah.v1.GetCurrentTenantRequest
 	(*GetCurrentTenantResponse)(nil), // 7: jennah.v1.GetCurrentTenantResponse
-	nil,                              // 8: jennah.v1.SubmitJobRequest.EnvVarsEntry
+	(*CancelJobRequest)(nil),         // 8: jennah.v1.CancelJobRequest
+	(*CancelJobResponse)(nil),        // 9: jennah.v1.CancelJobResponse
+	(*DeleteJobRequest)(nil),         // 10: jennah.v1.DeleteJobRequest
+	(*DeleteJobResponse)(nil),        // 11: jennah.v1.DeleteJobResponse
+	nil,                              // 12: jennah.v1.SubmitJobRequest.EnvVarsEntry
 }
 var file_proto_jennah_proto_depIdxs = []int32{
-	8, // 0: jennah.v1.SubmitJobRequest.env_vars:type_name -> jennah.v1.SubmitJobRequest.EnvVarsEntry
-	0, // 1: jennah.v1.SubmitJobRequest.resource_override:type_name -> jennah.v1.ResourceOverride
-	5, // 2: jennah.v1.ListJobsResponse.jobs:type_name -> jennah.v1.Job
-	1, // 3: jennah.v1.DeploymentService.SubmitJob:input_type -> jennah.v1.SubmitJobRequest
-	3, // 4: jennah.v1.DeploymentService.ListJobs:input_type -> jennah.v1.ListJobsRequest
-	6, // 5: jennah.v1.DeploymentService.GetCurrentTenant:input_type -> jennah.v1.GetCurrentTenantRequest
-	2, // 6: jennah.v1.DeploymentService.SubmitJob:output_type -> jennah.v1.SubmitJobResponse
-	4, // 7: jennah.v1.DeploymentService.ListJobs:output_type -> jennah.v1.ListJobsResponse
-	7, // 8: jennah.v1.DeploymentService.GetCurrentTenant:output_type -> jennah.v1.GetCurrentTenantResponse
-	6, // [6:9] is the sub-list for method output_type
-	3, // [3:6] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	12, // 0: jennah.v1.SubmitJobRequest.env_vars:type_name -> jennah.v1.SubmitJobRequest.EnvVarsEntry
+	0,  // 1: jennah.v1.SubmitJobRequest.resource_override:type_name -> jennah.v1.ResourceOverride
+	5,  // 2: jennah.v1.ListJobsResponse.jobs:type_name -> jennah.v1.Job
+	1,  // 3: jennah.v1.DeploymentService.SubmitJob:input_type -> jennah.v1.SubmitJobRequest
+	3,  // 4: jennah.v1.DeploymentService.ListJobs:input_type -> jennah.v1.ListJobsRequest
+	6,  // 5: jennah.v1.DeploymentService.GetCurrentTenant:input_type -> jennah.v1.GetCurrentTenantRequest
+	8,  // 6: jennah.v1.DeploymentService.CancelJob:input_type -> jennah.v1.CancelJobRequest
+	10, // 7: jennah.v1.DeploymentService.DeleteJob:input_type -> jennah.v1.DeleteJobRequest
+	2,  // 8: jennah.v1.DeploymentService.SubmitJob:output_type -> jennah.v1.SubmitJobResponse
+	4,  // 9: jennah.v1.DeploymentService.ListJobs:output_type -> jennah.v1.ListJobsResponse
+	7,  // 10: jennah.v1.DeploymentService.GetCurrentTenant:output_type -> jennah.v1.GetCurrentTenantResponse
+	9,  // 11: jennah.v1.DeploymentService.CancelJob:output_type -> jennah.v1.CancelJobResponse
+	11, // 12: jennah.v1.DeploymentService.DeleteJob:output_type -> jennah.v1.DeleteJobResponse
+	8,  // [8:13] is the sub-list for method output_type
+	3,  // [3:8] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_proto_jennah_proto_init() }
@@ -576,7 +788,7 @@ func file_proto_jennah_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_jennah_proto_rawDesc), len(file_proto_jennah_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

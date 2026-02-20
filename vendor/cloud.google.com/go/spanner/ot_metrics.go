@@ -23,7 +23,6 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -48,30 +47,21 @@ var (
 	otMu = sync.RWMutex{}
 )
 
-func createOpenTelemetryConfig(ctx context.Context, mp metric.MeterProvider, logger *log.Logger, sessionClientID string, db string) (*openTelemetryConfig, error) {
+func createOpenTelemetryConfig(mp metric.MeterProvider, logger *log.Logger, sessionClientID string, db string) (*openTelemetryConfig, error) {
 	// Important: snapshot the value of the global variable to ensure a
 	// consistent value for the lifetime of this client.
 	enabled := IsOpenTelemetryMetricsEnabled()
-	_, instance, database, err := parseDatabaseName(db)
-	if err != nil {
-		return nil, err
-	}
+
 	config := &openTelemetryConfig{
 		enabled:      enabled,
 		attributeMap: []attribute.KeyValue{},
-		commonTraceStartOptions: []trace.SpanStartOption{
-			trace.WithAttributes(
-				attribute.String("db.name", database),
-				attribute.String("instance.name", instance),
-				attribute.String("cloud.region", detectClientLocation(ctx)),
-				attribute.String("gcp.client.version", internal.Version),
-				attribute.String("gcp.client.repo", gcpClientRepo),
-				attribute.String("gcp.client.artifact", gcpClientArtifact),
-			),
-		},
 	}
 	if !enabled {
 		return config, nil
+	}
+	_, instance, database, err := parseDatabaseName(db)
+	if err != nil {
+		return nil, err
 	}
 
 	// Construct attributes for Metrics

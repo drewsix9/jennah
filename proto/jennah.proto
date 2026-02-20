@@ -14,6 +14,10 @@ service DeploymentService {
   rpc ListJobs(ListJobsRequest) returns (ListJobsResponse);
   // Get the current tenant's information.
   rpc GetCurrentTenant(GetCurrentTenantRequest) returns (GetCurrentTenantResponse);
+  // Cancel a job (only for PENDING, SCHEDULED, or RUNNING states).
+  rpc CancelJob(CancelJobRequest) returns (CancelJobResponse);
+  // Delete a job from the system.
+  rpc DeleteJob(DeleteJobRequest) returns (DeleteJobResponse);
 }
 
 
@@ -68,4 +72,22 @@ message GetCurrentTenantResponse {
   string user_email = 2;
   string oauth_provider = 3; // "google", "github"
   string created_at = 4;
+}
+
+message CancelJobRequest {
+  string job_id = 1;
+}
+
+message CancelJobResponse {
+  string job_id = 1;
+  string status = 2;
+}
+
+message DeleteJobRequest {
+  string job_id = 1;
+}
+
+message DeleteJobResponse {
+  string job_id = 1;
+  string message = 2;
 }
