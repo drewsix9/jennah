@@ -79,6 +79,12 @@ func main() {
 		gcpBatchClient: gcpBatchClient,
 	}
 
+	// Resume polling for active jobs from before restart
+	err = resumeActiveJobPollers(ctx, workerServer, dbClient)
+	if err != nil {
+		log.Printf("Warning: failed to resume job pollers on startup: %v", err)
+	}
+
 	mux := http.NewServeMux()
 	path, handler := jennahv1connect.NewDeploymentServiceHandler(workerServer)
 	mux.Handle(path, handler)
