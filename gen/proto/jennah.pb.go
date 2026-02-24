@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: proto/jennah.proto
+// source: jennah.proto
 
 package jennahv1
 
@@ -37,7 +37,7 @@ type ResourceOverride struct {
 
 func (x *ResourceOverride) Reset() {
 	*x = ResourceOverride{}
-	mi := &file_proto_jennah_proto_msgTypes[0]
+	mi := &file_jennah_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -49,7 +49,7 @@ func (x *ResourceOverride) String() string {
 func (*ResourceOverride) ProtoMessage() {}
 
 func (x *ResourceOverride) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_jennah_proto_msgTypes[0]
+	mi := &file_jennah_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -62,7 +62,7 @@ func (x *ResourceOverride) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResourceOverride.ProtoReflect.Descriptor instead.
 func (*ResourceOverride) Descriptor() ([]byte, []int) {
-	return file_proto_jennah_proto_rawDescGZIP(), []int{0}
+	return file_jennah_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *ResourceOverride) GetCpuMillis() int64 {
@@ -96,13 +96,25 @@ type SubmitJobRequest struct {
 	// resource_override provides inline resource values that take precedence over the preset.
 	// Partial overrides are supported — zero fields fall back to the resolved preset.
 	ResourceOverride *ResourceOverride `protobuf:"bytes,5,opt,name=resource_override,json=resourceOverride,proto3" json:"resource_override,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Optional user-provided job name.
+	Name string `protobuf:"bytes,6,opt,name=name,proto3" json:"name,omitempty"`
+	// Resolved machine type: "e2-standard-4", "n1-standard-16", etc.
+	MachineType string `protobuf:"bytes,7,opt,name=machine_type,json=machineType,proto3" json:"machine_type,omitempty"`
+	// Boot disk size in GB (default: 50).
+	BootDiskSizeGb int64 `protobuf:"varint,8,opt,name=boot_disk_size_gb,json=bootDiskSizeGb,proto3" json:"boot_disk_size_gb,omitempty"`
+	// Whether to use Spot VMs (default: false).
+	UseSpotVms bool `protobuf:"varint,9,opt,name=use_spot_vms,json=useSpotVms,proto3" json:"use_spot_vms,omitempty"`
+	// Custom service account email (optional).
+	ServiceAccount string `protobuf:"bytes,10,opt,name=service_account,json=serviceAccount,proto3" json:"service_account,omitempty"`
+	// Commands to execute in the container.
+	Commands      []string `protobuf:"bytes,11,rep,name=commands,proto3" json:"commands,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SubmitJobRequest) Reset() {
 	*x = SubmitJobRequest{}
-	mi := &file_proto_jennah_proto_msgTypes[1]
+	mi := &file_jennah_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -114,7 +126,7 @@ func (x *SubmitJobRequest) String() string {
 func (*SubmitJobRequest) ProtoMessage() {}
 
 func (x *SubmitJobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_jennah_proto_msgTypes[1]
+	mi := &file_jennah_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -127,7 +139,7 @@ func (x *SubmitJobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitJobRequest.ProtoReflect.Descriptor instead.
 func (*SubmitJobRequest) Descriptor() ([]byte, []int) {
-	return file_proto_jennah_proto_rawDescGZIP(), []int{1}
+	return file_jennah_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *SubmitJobRequest) GetImageUri() string {
@@ -158,6 +170,48 @@ func (x *SubmitJobRequest) GetResourceOverride() *ResourceOverride {
 	return nil
 }
 
+func (x *SubmitJobRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *SubmitJobRequest) GetMachineType() string {
+	if x != nil {
+		return x.MachineType
+	}
+	return ""
+}
+
+func (x *SubmitJobRequest) GetBootDiskSizeGb() int64 {
+	if x != nil {
+		return x.BootDiskSizeGb
+	}
+	return 0
+}
+
+func (x *SubmitJobRequest) GetUseSpotVms() bool {
+	if x != nil {
+		return x.UseSpotVms
+	}
+	return false
+}
+
+func (x *SubmitJobRequest) GetServiceAccount() string {
+	if x != nil {
+		return x.ServiceAccount
+	}
+	return ""
+}
+
+func (x *SubmitJobRequest) GetCommands() []string {
+	if x != nil {
+		return x.Commands
+	}
+	return nil
+}
+
 type SubmitJobResponse struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	JobId          string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
@@ -169,7 +223,7 @@ type SubmitJobResponse struct {
 
 func (x *SubmitJobResponse) Reset() {
 	*x = SubmitJobResponse{}
-	mi := &file_proto_jennah_proto_msgTypes[2]
+	mi := &file_jennah_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -181,7 +235,7 @@ func (x *SubmitJobResponse) String() string {
 func (*SubmitJobResponse) ProtoMessage() {}
 
 func (x *SubmitJobResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_jennah_proto_msgTypes[2]
+	mi := &file_jennah_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -194,7 +248,7 @@ func (x *SubmitJobResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubmitJobResponse.ProtoReflect.Descriptor instead.
 func (*SubmitJobResponse) Descriptor() ([]byte, []int) {
-	return file_proto_jennah_proto_rawDescGZIP(), []int{2}
+	return file_jennah_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *SubmitJobResponse) GetJobId() string {
@@ -226,7 +280,7 @@ type ListJobsRequest struct {
 
 func (x *ListJobsRequest) Reset() {
 	*x = ListJobsRequest{}
-	mi := &file_proto_jennah_proto_msgTypes[3]
+	mi := &file_jennah_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -238,7 +292,7 @@ func (x *ListJobsRequest) String() string {
 func (*ListJobsRequest) ProtoMessage() {}
 
 func (x *ListJobsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_jennah_proto_msgTypes[3]
+	mi := &file_jennah_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -251,7 +305,7 @@ func (x *ListJobsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListJobsRequest.ProtoReflect.Descriptor instead.
 func (*ListJobsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_jennah_proto_rawDescGZIP(), []int{3}
+	return file_jennah_proto_rawDescGZIP(), []int{3}
 }
 
 type ListJobsResponse struct {
@@ -263,7 +317,7 @@ type ListJobsResponse struct {
 
 func (x *ListJobsResponse) Reset() {
 	*x = ListJobsResponse{}
-	mi := &file_proto_jennah_proto_msgTypes[4]
+	mi := &file_jennah_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -275,7 +329,7 @@ func (x *ListJobsResponse) String() string {
 func (*ListJobsResponse) ProtoMessage() {}
 
 func (x *ListJobsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_jennah_proto_msgTypes[4]
+	mi := &file_jennah_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -288,7 +342,7 @@ func (x *ListJobsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListJobsResponse.ProtoReflect.Descriptor instead.
 func (*ListJobsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_jennah_proto_rawDescGZIP(), []int{4}
+	return file_jennah_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ListJobsResponse) GetJobs() []*Job {
@@ -299,19 +353,42 @@ func (x *ListJobsResponse) GetJobs() []*Job {
 }
 
 type Job struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
-	TenantId      string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
-	ImageUri      string                 `protobuf:"bytes,3,opt,name=image_uri,json=imageUri,proto3" json:"image_uri,omitempty"`
-	Status        string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
-	CreatedAt     string                 `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	JobId             string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	TenantId          string                 `protobuf:"bytes,2,opt,name=tenant_id,json=tenantId,proto3" json:"tenant_id,omitempty"`
+	ImageUri          string                 `protobuf:"bytes,3,opt,name=image_uri,json=imageUri,proto3" json:"image_uri,omitempty"`
+	Status            string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
+	CreatedAt         string                 `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt         string                 `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	ScheduledAt       string                 `protobuf:"bytes,7,opt,name=scheduled_at,json=scheduledAt,proto3" json:"scheduled_at,omitempty"`
+	StartedAt         string                 `protobuf:"bytes,8,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	CompletedAt       string                 `protobuf:"bytes,9,opt,name=completed_at,json=completedAt,proto3" json:"completed_at,omitempty"`
+	RetryCount        int64                  `protobuf:"varint,10,opt,name=retry_count,json=retryCount,proto3" json:"retry_count,omitempty"`
+	MaxRetries        int64                  `protobuf:"varint,11,opt,name=max_retries,json=maxRetries,proto3" json:"max_retries,omitempty"`
+	ErrorMessage      string                 `protobuf:"bytes,12,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	GcpBatchJobName   string                 `protobuf:"bytes,13,opt,name=gcp_batch_job_name,json=gcpBatchJobName,proto3" json:"gcp_batch_job_name,omitempty"`
+	Commands          []string               `protobuf:"bytes,14,rep,name=commands,proto3" json:"commands,omitempty"`
+	EnvVarsJson       string                 `protobuf:"bytes,15,opt,name=env_vars_json,json=envVarsJson,proto3" json:"env_vars_json,omitempty"`
+	GcpBatchTaskGroup string                 `protobuf:"bytes,16,opt,name=gcp_batch_task_group,json=gcpBatchTaskGroup,proto3" json:"gcp_batch_task_group,omitempty"`
+	// User-facing job name.
+	Name string `protobuf:"bytes,17,opt,name=name,proto3" json:"name,omitempty"`
+	// Resource preset used at submission: "small", "medium", "large", "xlarge".
+	ResourceProfile string `protobuf:"bytes,18,opt,name=resource_profile,json=resourceProfile,proto3" json:"resource_profile,omitempty"`
+	// Resolved machine type: "e2-standard-4", "n1-standard-16", etc.
+	MachineType string `protobuf:"bytes,19,opt,name=machine_type,json=machineType,proto3" json:"machine_type,omitempty"`
+	// Boot disk size in GB.
+	BootDiskSizeGb int64 `protobuf:"varint,20,opt,name=boot_disk_size_gb,json=bootDiskSizeGb,proto3" json:"boot_disk_size_gb,omitempty"`
+	// Whether Spot VMs were requested.
+	UseSpotVms bool `protobuf:"varint,21,opt,name=use_spot_vms,json=useSpotVms,proto3" json:"use_spot_vms,omitempty"`
+	// Custom service account email (optional).
+	ServiceAccount string `protobuf:"bytes,22,opt,name=service_account,json=serviceAccount,proto3" json:"service_account,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Job) Reset() {
 	*x = Job{}
-	mi := &file_proto_jennah_proto_msgTypes[5]
+	mi := &file_jennah_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -323,7 +400,7 @@ func (x *Job) String() string {
 func (*Job) ProtoMessage() {}
 
 func (x *Job) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_jennah_proto_msgTypes[5]
+	mi := &file_jennah_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -336,7 +413,7 @@ func (x *Job) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Job.ProtoReflect.Descriptor instead.
 func (*Job) Descriptor() ([]byte, []int) {
-	return file_proto_jennah_proto_rawDescGZIP(), []int{5}
+	return file_jennah_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *Job) GetJobId() string {
@@ -374,6 +451,125 @@ func (x *Job) GetCreatedAt() string {
 	return ""
 }
 
+func (x *Job) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+func (x *Job) GetScheduledAt() string {
+	if x != nil {
+		return x.ScheduledAt
+	}
+	return ""
+}
+
+func (x *Job) GetStartedAt() string {
+	if x != nil {
+		return x.StartedAt
+	}
+	return ""
+}
+
+func (x *Job) GetCompletedAt() string {
+	if x != nil {
+		return x.CompletedAt
+	}
+	return ""
+}
+
+func (x *Job) GetRetryCount() int64 {
+	if x != nil {
+		return x.RetryCount
+	}
+	return 0
+}
+
+func (x *Job) GetMaxRetries() int64 {
+	if x != nil {
+		return x.MaxRetries
+	}
+	return 0
+}
+
+func (x *Job) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
+func (x *Job) GetGcpBatchJobName() string {
+	if x != nil {
+		return x.GcpBatchJobName
+	}
+	return ""
+}
+
+func (x *Job) GetCommands() []string {
+	if x != nil {
+		return x.Commands
+	}
+	return nil
+}
+
+func (x *Job) GetEnvVarsJson() string {
+	if x != nil {
+		return x.EnvVarsJson
+	}
+	return ""
+}
+
+func (x *Job) GetGcpBatchTaskGroup() string {
+	if x != nil {
+		return x.GcpBatchTaskGroup
+	}
+	return ""
+}
+
+func (x *Job) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Job) GetResourceProfile() string {
+	if x != nil {
+		return x.ResourceProfile
+	}
+	return ""
+}
+
+func (x *Job) GetMachineType() string {
+	if x != nil {
+		return x.MachineType
+	}
+	return ""
+}
+
+func (x *Job) GetBootDiskSizeGb() int64 {
+	if x != nil {
+		return x.BootDiskSizeGb
+	}
+	return 0
+}
+
+func (x *Job) GetUseSpotVms() bool {
+	if x != nil {
+		return x.UseSpotVms
+	}
+	return false
+}
+
+func (x *Job) GetServiceAccount() string {
+	if x != nil {
+		return x.ServiceAccount
+	}
+	return ""
+}
+
 type GetCurrentTenantRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -382,7 +578,7 @@ type GetCurrentTenantRequest struct {
 
 func (x *GetCurrentTenantRequest) Reset() {
 	*x = GetCurrentTenantRequest{}
-	mi := &file_proto_jennah_proto_msgTypes[6]
+	mi := &file_jennah_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -394,7 +590,7 @@ func (x *GetCurrentTenantRequest) String() string {
 func (*GetCurrentTenantRequest) ProtoMessage() {}
 
 func (x *GetCurrentTenantRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_jennah_proto_msgTypes[6]
+	mi := &file_jennah_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -407,7 +603,7 @@ func (x *GetCurrentTenantRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCurrentTenantRequest.ProtoReflect.Descriptor instead.
 func (*GetCurrentTenantRequest) Descriptor() ([]byte, []int) {
-	return file_proto_jennah_proto_rawDescGZIP(), []int{6}
+	return file_jennah_proto_rawDescGZIP(), []int{6}
 }
 
 type GetCurrentTenantResponse struct {
@@ -422,7 +618,7 @@ type GetCurrentTenantResponse struct {
 
 func (x *GetCurrentTenantResponse) Reset() {
 	*x = GetCurrentTenantResponse{}
-	mi := &file_proto_jennah_proto_msgTypes[7]
+	mi := &file_jennah_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -434,7 +630,7 @@ func (x *GetCurrentTenantResponse) String() string {
 func (*GetCurrentTenantResponse) ProtoMessage() {}
 
 func (x *GetCurrentTenantResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_jennah_proto_msgTypes[7]
+	mi := &file_jennah_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -447,7 +643,7 @@ func (x *GetCurrentTenantResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCurrentTenantResponse.ProtoReflect.Descriptor instead.
 func (*GetCurrentTenantResponse) Descriptor() ([]byte, []int) {
-	return file_proto_jennah_proto_rawDescGZIP(), []int{7}
+	return file_jennah_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetCurrentTenantResponse) GetTenantId() string {
@@ -487,7 +683,7 @@ type CancelJobRequest struct {
 
 func (x *CancelJobRequest) Reset() {
 	*x = CancelJobRequest{}
-	mi := &file_proto_jennah_proto_msgTypes[8]
+	mi := &file_jennah_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -499,7 +695,7 @@ func (x *CancelJobRequest) String() string {
 func (*CancelJobRequest) ProtoMessage() {}
 
 func (x *CancelJobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_jennah_proto_msgTypes[8]
+	mi := &file_jennah_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -512,7 +708,7 @@ func (x *CancelJobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelJobRequest.ProtoReflect.Descriptor instead.
 func (*CancelJobRequest) Descriptor() ([]byte, []int) {
-	return file_proto_jennah_proto_rawDescGZIP(), []int{8}
+	return file_jennah_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *CancelJobRequest) GetJobId() string {
@@ -532,7 +728,7 @@ type CancelJobResponse struct {
 
 func (x *CancelJobResponse) Reset() {
 	*x = CancelJobResponse{}
-	mi := &file_proto_jennah_proto_msgTypes[9]
+	mi := &file_jennah_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -544,7 +740,7 @@ func (x *CancelJobResponse) String() string {
 func (*CancelJobResponse) ProtoMessage() {}
 
 func (x *CancelJobResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_jennah_proto_msgTypes[9]
+	mi := &file_jennah_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -557,7 +753,7 @@ func (x *CancelJobResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelJobResponse.ProtoReflect.Descriptor instead.
 func (*CancelJobResponse) Descriptor() ([]byte, []int) {
-	return file_proto_jennah_proto_rawDescGZIP(), []int{9}
+	return file_jennah_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *CancelJobResponse) GetJobId() string {
@@ -583,7 +779,7 @@ type DeleteJobRequest struct {
 
 func (x *DeleteJobRequest) Reset() {
 	*x = DeleteJobRequest{}
-	mi := &file_proto_jennah_proto_msgTypes[10]
+	mi := &file_jennah_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -595,7 +791,7 @@ func (x *DeleteJobRequest) String() string {
 func (*DeleteJobRequest) ProtoMessage() {}
 
 func (x *DeleteJobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_jennah_proto_msgTypes[10]
+	mi := &file_jennah_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -608,7 +804,7 @@ func (x *DeleteJobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteJobRequest.ProtoReflect.Descriptor instead.
 func (*DeleteJobRequest) Descriptor() ([]byte, []int) {
-	return file_proto_jennah_proto_rawDescGZIP(), []int{10}
+	return file_jennah_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *DeleteJobRequest) GetJobId() string {
@@ -628,7 +824,7 @@ type DeleteJobResponse struct {
 
 func (x *DeleteJobResponse) Reset() {
 	*x = DeleteJobResponse{}
-	mi := &file_proto_jennah_proto_msgTypes[11]
+	mi := &file_jennah_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -640,7 +836,7 @@ func (x *DeleteJobResponse) String() string {
 func (*DeleteJobResponse) ProtoMessage() {}
 
 func (x *DeleteJobResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_jennah_proto_msgTypes[11]
+	mi := &file_jennah_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -653,7 +849,7 @@ func (x *DeleteJobResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteJobResponse.ProtoReflect.Descriptor instead.
 func (*DeleteJobResponse) Descriptor() ([]byte, []int) {
-	return file_proto_jennah_proto_rawDescGZIP(), []int{11}
+	return file_jennah_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *DeleteJobResponse) GetJobId() string {
@@ -670,22 +866,118 @@ func (x *DeleteJobResponse) GetMessage() string {
 	return ""
 }
 
-var File_proto_jennah_proto protoreflect.FileDescriptor
+type GetJobRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
 
-const file_proto_jennah_proto_rawDesc = "" +
+func (x *GetJobRequest) Reset() {
+	*x = GetJobRequest{}
+	mi := &file_jennah_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetJobRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetJobRequest) ProtoMessage() {}
+
+func (x *GetJobRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetJobRequest.ProtoReflect.Descriptor instead.
+func (*GetJobRequest) Descriptor() ([]byte, []int) {
+	return file_jennah_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *GetJobRequest) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+type GetJobResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Job           *Job                   `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetJobResponse) Reset() {
+	*x = GetJobResponse{}
+	mi := &file_jennah_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetJobResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetJobResponse) ProtoMessage() {}
+
+func (x *GetJobResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_jennah_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetJobResponse.ProtoReflect.Descriptor instead.
+func (*GetJobResponse) Descriptor() ([]byte, []int) {
+	return file_jennah_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *GetJobResponse) GetJob() *Job {
+	if x != nil {
+		return x.Job
+	}
+	return nil
+}
+
+var File_jennah_proto protoreflect.FileDescriptor
+
+const file_jennah_proto_rawDesc = "" +
 	"\n" +
-	"\x12proto/jennah.proto\x12\tjennah.v1\"\x89\x01\n" +
+	"\fjennah.proto\x12\tjennah.v1\"\x89\x01\n" +
 	"\x10ResourceOverride\x12\x1d\n" +
 	"\n" +
 	"cpu_millis\x18\x01 \x01(\x03R\tcpuMillis\x12\x1d\n" +
 	"\n" +
 	"memory_mib\x18\x02 \x01(\x03R\tmemoryMib\x127\n" +
-	"\x18max_run_duration_seconds\x18\x03 \x01(\x03R\x15maxRunDurationSeconds\"\xa5\x02\n" +
+	"\x18max_run_duration_seconds\x18\x03 \x01(\x03R\x15maxRunDurationSeconds\"\xee\x03\n" +
 	"\x10SubmitJobRequest\x12\x1b\n" +
 	"\timage_uri\x18\x02 \x01(\tR\bimageUri\x12C\n" +
 	"\benv_vars\x18\x03 \x03(\v2(.jennah.v1.SubmitJobRequest.EnvVarsEntryR\aenvVars\x12)\n" +
 	"\x10resource_profile\x18\x04 \x01(\tR\x0fresourceProfile\x12H\n" +
-	"\x11resource_override\x18\x05 \x01(\v2\x1b.jennah.v1.ResourceOverrideR\x10resourceOverride\x1a:\n" +
+	"\x11resource_override\x18\x05 \x01(\v2\x1b.jennah.v1.ResourceOverrideR\x10resourceOverride\x12\x12\n" +
+	"\x04name\x18\x06 \x01(\tR\x04name\x12!\n" +
+	"\fmachine_type\x18\a \x01(\tR\vmachineType\x12)\n" +
+	"\x11boot_disk_size_gb\x18\b \x01(\x03R\x0ebootDiskSizeGb\x12 \n" +
+	"\fuse_spot_vms\x18\t \x01(\bR\n" +
+	"useSpotVms\x12'\n" +
+	"\x0fservice_account\x18\n" +
+	" \x01(\tR\x0eserviceAccount\x12\x1a\n" +
+	"\bcommands\x18\v \x03(\tR\bcommands\x1a:\n" +
 	"\fEnvVarsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"k\n" +
@@ -695,14 +987,37 @@ const file_proto_jennah_proto_rawDesc = "" +
 	"\x0fworker_assigned\x18\x03 \x01(\tR\x0eworkerAssigned\"\x11\n" +
 	"\x0fListJobsRequest\"6\n" +
 	"\x10ListJobsResponse\x12\"\n" +
-	"\x04jobs\x18\x01 \x03(\v2\x0e.jennah.v1.JobR\x04jobs\"\x8d\x01\n" +
+	"\x04jobs\x18\x01 \x03(\v2\x0e.jennah.v1.JobR\x04jobs\"\xee\x05\n" +
 	"\x03Job\x12\x15\n" +
 	"\x06job_id\x18\x01 \x01(\tR\x05jobId\x12\x1b\n" +
 	"\ttenant_id\x18\x02 \x01(\tR\btenantId\x12\x1b\n" +
 	"\timage_uri\x18\x03 \x01(\tR\bimageUri\x12\x16\n" +
 	"\x06status\x18\x04 \x01(\tR\x06status\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x05 \x01(\tR\tcreatedAt\"\x19\n" +
+	"created_at\x18\x05 \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\x06 \x01(\tR\tupdatedAt\x12!\n" +
+	"\fscheduled_at\x18\a \x01(\tR\vscheduledAt\x12\x1d\n" +
+	"\n" +
+	"started_at\x18\b \x01(\tR\tstartedAt\x12!\n" +
+	"\fcompleted_at\x18\t \x01(\tR\vcompletedAt\x12\x1f\n" +
+	"\vretry_count\x18\n" +
+	" \x01(\x03R\n" +
+	"retryCount\x12\x1f\n" +
+	"\vmax_retries\x18\v \x01(\x03R\n" +
+	"maxRetries\x12#\n" +
+	"\rerror_message\x18\f \x01(\tR\ferrorMessage\x12+\n" +
+	"\x12gcp_batch_job_name\x18\r \x01(\tR\x0fgcpBatchJobName\x12\x1a\n" +
+	"\bcommands\x18\x0e \x03(\tR\bcommands\x12\"\n" +
+	"\renv_vars_json\x18\x0f \x01(\tR\venvVarsJson\x12/\n" +
+	"\x14gcp_batch_task_group\x18\x10 \x01(\tR\x11gcpBatchTaskGroup\x12\x12\n" +
+	"\x04name\x18\x11 \x01(\tR\x04name\x12)\n" +
+	"\x10resource_profile\x18\x12 \x01(\tR\x0fresourceProfile\x12!\n" +
+	"\fmachine_type\x18\x13 \x01(\tR\vmachineType\x12)\n" +
+	"\x11boot_disk_size_gb\x18\x14 \x01(\x03R\x0ebootDiskSizeGb\x12 \n" +
+	"\fuse_spot_vms\x18\x15 \x01(\bR\n" +
+	"useSpotVms\x12'\n" +
+	"\x0fservice_account\x18\x16 \x01(\tR\x0eserviceAccount\"\x19\n" +
 	"\x17GetCurrentTenantRequest\"\x9c\x01\n" +
 	"\x18GetCurrentTenantResponse\x12\x1b\n" +
 	"\ttenant_id\x18\x01 \x01(\tR\btenantId\x12\x1d\n" +
@@ -720,28 +1035,33 @@ const file_proto_jennah_proto_rawDesc = "" +
 	"\x06job_id\x18\x01 \x01(\tR\x05jobId\"D\n" +
 	"\x11DeleteJobResponse\x12\x15\n" +
 	"\x06job_id\x18\x01 \x01(\tR\x05jobId\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage2\x8d\x03\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"&\n" +
+	"\rGetJobRequest\x12\x15\n" +
+	"\x06job_id\x18\x01 \x01(\tR\x05jobId\"2\n" +
+	"\x0eGetJobResponse\x12 \n" +
+	"\x03job\x18\x01 \x01(\v2\x0e.jennah.v1.JobR\x03job2\xcc\x03\n" +
 	"\x11DeploymentService\x12F\n" +
 	"\tSubmitJob\x12\x1b.jennah.v1.SubmitJobRequest\x1a\x1c.jennah.v1.SubmitJobResponse\x12C\n" +
 	"\bListJobs\x12\x1a.jennah.v1.ListJobsRequest\x1a\x1b.jennah.v1.ListJobsResponse\x12[\n" +
 	"\x10GetCurrentTenant\x12\".jennah.v1.GetCurrentTenantRequest\x1a#.jennah.v1.GetCurrentTenantResponse\x12F\n" +
 	"\tCancelJob\x12\x1b.jennah.v1.CancelJobRequest\x1a\x1c.jennah.v1.CancelJobResponse\x12F\n" +
-	"\tDeleteJob\x12\x1b.jennah.v1.DeleteJobRequest\x1a\x1c.jennah.v1.DeleteJobResponseB2Z0github.com/alphauslabs/jennah/gen/proto;jennahv1b\x06proto3"
+	"\tDeleteJob\x12\x1b.jennah.v1.DeleteJobRequest\x1a\x1c.jennah.v1.DeleteJobResponse\x12=\n" +
+	"\x06GetJob\x12\x18.jennah.v1.GetJobRequest\x1a\x19.jennah.v1.GetJobResponseB2Z0github.com/alphauslabs/jennah/gen/proto;jennahv1b\x06proto3"
 
 var (
-	file_proto_jennah_proto_rawDescOnce sync.Once
-	file_proto_jennah_proto_rawDescData []byte
+	file_jennah_proto_rawDescOnce sync.Once
+	file_jennah_proto_rawDescData []byte
 )
 
-func file_proto_jennah_proto_rawDescGZIP() []byte {
-	file_proto_jennah_proto_rawDescOnce.Do(func() {
-		file_proto_jennah_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_jennah_proto_rawDesc), len(file_proto_jennah_proto_rawDesc)))
+func file_jennah_proto_rawDescGZIP() []byte {
+	file_jennah_proto_rawDescOnce.Do(func() {
+		file_jennah_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_jennah_proto_rawDesc), len(file_jennah_proto_rawDesc)))
 	})
-	return file_proto_jennah_proto_rawDescData
+	return file_jennah_proto_rawDescData
 }
 
-var file_proto_jennah_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
-var file_proto_jennah_proto_goTypes = []any{
+var file_jennah_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_jennah_proto_goTypes = []any{
 	(*ResourceOverride)(nil),         // 0: jennah.v1.ResourceOverride
 	(*SubmitJobRequest)(nil),         // 1: jennah.v1.SubmitJobRequest
 	(*SubmitJobResponse)(nil),        // 2: jennah.v1.SubmitJobResponse
@@ -754,49 +1074,54 @@ var file_proto_jennah_proto_goTypes = []any{
 	(*CancelJobResponse)(nil),        // 9: jennah.v1.CancelJobResponse
 	(*DeleteJobRequest)(nil),         // 10: jennah.v1.DeleteJobRequest
 	(*DeleteJobResponse)(nil),        // 11: jennah.v1.DeleteJobResponse
-	nil,                              // 12: jennah.v1.SubmitJobRequest.EnvVarsEntry
+	(*GetJobRequest)(nil),            // 12: jennah.v1.GetJobRequest
+	(*GetJobResponse)(nil),           // 13: jennah.v1.GetJobResponse
+	nil,                              // 14: jennah.v1.SubmitJobRequest.EnvVarsEntry
 }
-var file_proto_jennah_proto_depIdxs = []int32{
-	12, // 0: jennah.v1.SubmitJobRequest.env_vars:type_name -> jennah.v1.SubmitJobRequest.EnvVarsEntry
+var file_jennah_proto_depIdxs = []int32{
+	14, // 0: jennah.v1.SubmitJobRequest.env_vars:type_name -> jennah.v1.SubmitJobRequest.EnvVarsEntry
 	0,  // 1: jennah.v1.SubmitJobRequest.resource_override:type_name -> jennah.v1.ResourceOverride
 	5,  // 2: jennah.v1.ListJobsResponse.jobs:type_name -> jennah.v1.Job
-	1,  // 3: jennah.v1.DeploymentService.SubmitJob:input_type -> jennah.v1.SubmitJobRequest
-	3,  // 4: jennah.v1.DeploymentService.ListJobs:input_type -> jennah.v1.ListJobsRequest
-	6,  // 5: jennah.v1.DeploymentService.GetCurrentTenant:input_type -> jennah.v1.GetCurrentTenantRequest
-	8,  // 6: jennah.v1.DeploymentService.CancelJob:input_type -> jennah.v1.CancelJobRequest
-	10, // 7: jennah.v1.DeploymentService.DeleteJob:input_type -> jennah.v1.DeleteJobRequest
-	2,  // 8: jennah.v1.DeploymentService.SubmitJob:output_type -> jennah.v1.SubmitJobResponse
-	4,  // 9: jennah.v1.DeploymentService.ListJobs:output_type -> jennah.v1.ListJobsResponse
-	7,  // 10: jennah.v1.DeploymentService.GetCurrentTenant:output_type -> jennah.v1.GetCurrentTenantResponse
-	9,  // 11: jennah.v1.DeploymentService.CancelJob:output_type -> jennah.v1.CancelJobResponse
-	11, // 12: jennah.v1.DeploymentService.DeleteJob:output_type -> jennah.v1.DeleteJobResponse
-	8,  // [8:13] is the sub-list for method output_type
-	3,  // [3:8] is the sub-list for method input_type
-	3,  // [3:3] is the sub-list for extension type_name
-	3,  // [3:3] is the sub-list for extension extendee
-	0,  // [0:3] is the sub-list for field type_name
+	5,  // 3: jennah.v1.GetJobResponse.job:type_name -> jennah.v1.Job
+	1,  // 4: jennah.v1.DeploymentService.SubmitJob:input_type -> jennah.v1.SubmitJobRequest
+	3,  // 5: jennah.v1.DeploymentService.ListJobs:input_type -> jennah.v1.ListJobsRequest
+	6,  // 6: jennah.v1.DeploymentService.GetCurrentTenant:input_type -> jennah.v1.GetCurrentTenantRequest
+	8,  // 7: jennah.v1.DeploymentService.CancelJob:input_type -> jennah.v1.CancelJobRequest
+	10, // 8: jennah.v1.DeploymentService.DeleteJob:input_type -> jennah.v1.DeleteJobRequest
+	12, // 9: jennah.v1.DeploymentService.GetJob:input_type -> jennah.v1.GetJobRequest
+	2,  // 10: jennah.v1.DeploymentService.SubmitJob:output_type -> jennah.v1.SubmitJobResponse
+	4,  // 11: jennah.v1.DeploymentService.ListJobs:output_type -> jennah.v1.ListJobsResponse
+	7,  // 12: jennah.v1.DeploymentService.GetCurrentTenant:output_type -> jennah.v1.GetCurrentTenantResponse
+	9,  // 13: jennah.v1.DeploymentService.CancelJob:output_type -> jennah.v1.CancelJobResponse
+	11, // 14: jennah.v1.DeploymentService.DeleteJob:output_type -> jennah.v1.DeleteJobResponse
+	13, // 15: jennah.v1.DeploymentService.GetJob:output_type -> jennah.v1.GetJobResponse
+	10, // [10:16] is the sub-list for method output_type
+	4,  // [4:10] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
-func init() { file_proto_jennah_proto_init() }
-func file_proto_jennah_proto_init() {
-	if File_proto_jennah_proto != nil {
+func init() { file_jennah_proto_init() }
+func file_jennah_proto_init() {
+	if File_jennah_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_jennah_proto_rawDesc), len(file_proto_jennah_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_jennah_proto_rawDesc), len(file_jennah_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   13,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_proto_jennah_proto_goTypes,
-		DependencyIndexes: file_proto_jennah_proto_depIdxs,
-		MessageInfos:      file_proto_jennah_proto_msgTypes,
+		GoTypes:           file_jennah_proto_goTypes,
+		DependencyIndexes: file_jennah_proto_depIdxs,
+		MessageInfos:      file_jennah_proto_msgTypes,
 	}.Build()
-	File_proto_jennah_proto = out.File
-	file_proto_jennah_proto_goTypes = nil
-	file_proto_jennah_proto_depIdxs = nil
+	File_jennah_proto = out.File
+	file_jennah_proto_goTypes = nil
+	file_jennah_proto_depIdxs = nil
 }

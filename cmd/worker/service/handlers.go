@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -17,6 +18,63 @@ import (
 	"github.com/alphauslabs/jennah/internal/config"
 	"github.com/alphauslabs/jennah/internal/database"
 )
+
+// dbJobToProto converts a database Job to a proto Job message.
+func dbJobToProto(job *database.Job) *jennahv1.Job {
+	p := &jennahv1.Job{
+		JobId:      job.JobId,
+		TenantId:   job.TenantId,
+		ImageUri:   job.ImageUri,
+		Status:     job.Status,
+		CreatedAt:  job.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:  job.UpdatedAt.Format(time.RFC3339),
+		RetryCount: job.RetryCount,
+		MaxRetries: job.MaxRetries,
+		Commands:   job.Commands,
+	}
+
+	if job.ScheduledAt != nil {
+		p.ScheduledAt = job.ScheduledAt.Format(time.RFC3339)
+	}
+	if job.StartedAt != nil {
+		p.StartedAt = job.StartedAt.Format(time.RFC3339)
+	}
+	if job.CompletedAt != nil {
+		p.CompletedAt = job.CompletedAt.Format(time.RFC3339)
+	}
+	if job.ErrorMessage != nil {
+		p.ErrorMessage = *job.ErrorMessage
+	}
+	if job.GcpBatchJobName != nil {
+		p.GcpBatchJobName = *job.GcpBatchJobName
+	}
+	if job.GcpBatchTaskGroup != nil {
+		p.GcpBatchTaskGroup = *job.GcpBatchTaskGroup
+	}
+	if job.EnvVarsJson != nil {
+		p.EnvVarsJson = *job.EnvVarsJson
+	}
+	if job.Name != nil {
+		p.Name = *job.Name
+	}
+	if job.ResourceProfile != nil {
+		p.ResourceProfile = *job.ResourceProfile
+	}
+	if job.MachineType != nil {
+		p.MachineType = *job.MachineType
+	}
+	if job.BootDiskSizeGb != nil {
+		p.BootDiskSizeGb = *job.BootDiskSizeGb
+	}
+	if job.UseSpotVms != nil {
+		p.UseSpotVms = *job.UseSpotVms
+	}
+	if job.ServiceAccount != nil {
+		p.ServiceAccount = *job.ServiceAccount
+	}
+
+	return p
+}
 
 // SubmitJob handles a job submission request.
 func (s *WorkerService) SubmitJob(
@@ -40,12 +98,40 @@ func (s *WorkerService) SubmitJob(
 	internalJobID := uuid.New().String()
 	log.Printf("Generated internal job ID: %s", internalJobID)
 
-	// Generate cloud provider-compatible job ID (lowercase, starts with letter, no underscores).
-	providerJobID := generateProviderJobID(internalJobID)
+	// Generate cloud provider-compatible job ID.
+	// Use user-provided name if available, otherwise fall back to UUID-based ID.
+	providerJobID := generateProviderJobID(req.Msg.Name, internalJobID)
 	log.Printf("Generated provider job ID: %s", providerJobID)
 
-	// Insert job record with PENDING status.
-	err := s.dbClient.InsertJob(ctx, tenantID, internalJobID, req.Msg.ImageUri, []string{})
+	// Serialize environment variables to JSON for storage.
+	var envVarsJson *string
+	if len(req.Msg.EnvVars) > 0 {
+		envBytes, err := json.Marshal(req.Msg.EnvVars)
+		if err != nil {
+			log.Printf("Error serializing env vars: %v", err)
+			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to serialize env vars: %w", err))
+		}
+		s := string(envBytes)
+		envVarsJson = &s
+	}
+
+	// Insert job record with PENDING status and advanced config.
+	err := s.dbClient.InsertJobFull(ctx, &database.Job{
+		TenantId:        tenantID,
+		JobId:           internalJobID,
+		Status:          database.JobStatusPending,
+		ImageUri:        req.Msg.ImageUri,
+		Commands:        req.Msg.Commands,
+		RetryCount:      0,
+		MaxRetries:      3,
+		EnvVarsJson:     envVarsJson,
+		Name:            ptrStringOrNil(req.Msg.Name),
+		ResourceProfile: ptrStringOrNil(req.Msg.ResourceProfile),
+		MachineType:     ptrStringOrNil(req.Msg.MachineType),
+		BootDiskSizeGb:  ptrInt64OrNil(req.Msg.BootDiskSizeGb),
+		UseSpotVms:      ptrBoolOrNil(req.Msg.UseSpotVms),
+		ServiceAccount:  ptrStringOrNil(req.Msg.ServiceAccount),
+	})
 	if err != nil {
 		log.Printf("Error inserting job to database: %v", err)
 		return nil, connect.NewError(
@@ -140,14 +226,7 @@ func (s *WorkerService) ListJobs(
 
 	protoJobs := make([]*jennahv1.Job, 0, len(jobs))
 	for _, job := range jobs {
-		protoJob := &jennahv1.Job{
-			JobId:     job.JobId,
-			TenantId:  job.TenantId,
-			ImageUri:  job.ImageUri,
-			Status:    job.Status,
-			CreatedAt: job.CreatedAt.Format(time.RFC3339),
-		}
-		protoJobs = append(protoJobs, protoJob)
+		protoJobs = append(protoJobs, dbJobToProto(job))
 	}
 
 	response := connect.NewResponse(&jennahv1.ListJobsResponse{
@@ -301,9 +380,105 @@ func (s *WorkerService) DeleteJob(
 	return response, nil
 }
 
-// generateProviderJobID creates a provider-compatible job ID from UUID.
-// Most cloud providers require lowercase, starting with letter, no underscores.
-func generateProviderJobID(id string) string {
-	cleanUUID := strings.ReplaceAll(id, "-", "")
-	return "jennah-" + strings.ToLower(cleanUUID[:8])
+// GetJob returns full details for a single job.
+func (s *WorkerService) GetJob(
+	ctx context.Context,
+	req *connect.Request[jennahv1.GetJobRequest],
+) (*connect.Response[jennahv1.GetJobResponse], error) {
+	tenantID := req.Header().Get("X-Tenant-Id")
+	jobID := req.Msg.JobId
+
+	if tenantID == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("X-Tenant-Id header is required"))
+	}
+
+	if jobID == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("job_id is required"))
+	}
+
+	log.Printf("Received GetJob request for job %s (tenant: %s)", jobID, tenantID)
+
+	job, err := s.dbClient.GetJob(ctx, tenantID, jobID)
+	if err != nil {
+		log.Printf("Error retrieving job: %v", err)
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("job not found: %w", err))
+	}
+
+	response := connect.NewResponse(&jennahv1.GetJobResponse{
+		Job: dbJobToProto(job),
+	})
+
+	log.Printf("Successfully retrieved job %s for tenant %s", jobID, tenantID)
+	return response, nil
+}
+
+// generateProviderJobID creates a GCP Batch-compatible job ID.
+// If a user-provided name is given, it is sanitized (lowercased, invalid chars
+// replaced with hyphens, trimmed to fit) and a short UUID suffix is appended to
+// guarantee uniqueness. If name is empty, falls back to "jennah-{uuid[:8]}".
+//
+// GCP Batch constraints: ^[a-z]([a-z0-9-]{0,62}[a-z0-9])?$ (max 64 chars).
+func generateProviderJobID(name, jobID string) string {
+	shortID := strings.ReplaceAll(jobID, "-", "")[:8]
+
+	if name == "" {
+		return "jennah-" + strings.ToLower(shortID)
+	}
+
+	// Sanitize: lowercase, replace non-alphanumeric with hyphens, collapse runs.
+	sanitized := strings.ToLower(name)
+	var b strings.Builder
+	prevHyphen := false
+	for _, r := range sanitized {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+			prevHyphen = false
+		default:
+			if !prevHyphen && b.Len() > 0 {
+				b.WriteByte('-')
+				prevHyphen = true
+			}
+		}
+	}
+	sanitized = strings.TrimRight(b.String(), "-")
+
+	// Ensure it starts with a letter.
+	if len(sanitized) == 0 || sanitized[0] < 'a' || sanitized[0] > 'z' {
+		sanitized = "j" + sanitized
+	}
+
+	// Format: "{sanitized}-{shortID}", max 64 chars total.
+	suffix := "-" + shortID // 9 chars
+	maxNameLen := 64 - len(suffix)
+	if len(sanitized) > maxNameLen {
+		sanitized = strings.TrimRight(sanitized[:maxNameLen], "-")
+	}
+
+	return sanitized + suffix
+}
+
+// ptrStringOrNil returns a pointer to s if non-empty, nil otherwise.
+func ptrStringOrNil(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+// ptrInt64OrNil returns a pointer to v if non-zero, nil otherwise.
+func ptrInt64OrNil(v int64) *int64 {
+	if v == 0 {
+		return nil
+	}
+	return &v
+}
+
+// ptrBoolOrNil returns a pointer to v if true, nil otherwise.
+// For Spanner nullable BOOL columns, false maps to nil (unset).
+func ptrBoolOrNil(v bool) *bool {
+	if !v {
+		return nil
+	}
+	return &v
 }

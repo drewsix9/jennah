@@ -18,6 +18,8 @@ service DeploymentService {
   rpc CancelJob(CancelJobRequest) returns (CancelJobResponse);
   // Delete a job from the system.
   rpc DeleteJob(DeleteJobRequest) returns (DeleteJobResponse);
+  // Get a single job's full details.
+  rpc GetJob(GetJobRequest) returns (GetJobResponse);
 }
 
 
@@ -41,6 +43,18 @@ message SubmitJobRequest {
   // resource_override provides inline resource values that take precedence over the preset.
   // Partial overrides are supported — zero fields fall back to the resolved preset.
   ResourceOverride resource_override = 5;
+  // Optional user-provided job name.
+  string name = 6;
+  // Resolved machine type: "e2-standard-4", "n1-standard-16", etc.
+  string machine_type = 7;
+  // Boot disk size in GB (default: 50).
+  int64 boot_disk_size_gb = 8;
+  // Whether to use Spot VMs (default: false).
+  bool use_spot_vms = 9;
+  // Custom service account email (optional).
+  string service_account = 10;
+  // Commands to execute in the container.
+  repeated string commands = 11;
 }
 
 message SubmitJobResponse {
@@ -62,6 +76,29 @@ message Job {
   string image_uri = 3;
   string status = 4;
   string created_at = 5;
+  string updated_at = 6;
+  string scheduled_at = 7;
+  string started_at = 8;
+  string completed_at = 9;
+  int64 retry_count = 10;
+  int64 max_retries = 11;
+  string error_message = 12;
+  string gcp_batch_job_name = 13;
+  repeated string commands = 14;
+  string env_vars_json = 15;
+  string gcp_batch_task_group = 16;
+  // User-facing job name.
+  string name = 17;
+  // Resource preset used at submission: "small", "medium", "large", "xlarge".
+  string resource_profile = 18;
+  // Resolved machine type: "e2-standard-4", "n1-standard-16", etc.
+  string machine_type = 19;
+  // Boot disk size in GB.
+  int64 boot_disk_size_gb = 20;
+  // Whether Spot VMs were requested.
+  bool use_spot_vms = 21;
+  // Custom service account email (optional).
+  string service_account = 22;
 }
 
 message GetCurrentTenantRequest {
@@ -90,4 +127,12 @@ message DeleteJobRequest {
 message DeleteJobResponse {
   string job_id = 1;
   string message = 2;
+}
+
+message GetJobRequest {
+  string job_id = 1;
+}
+
+message GetJobResponse {
+  Job job = 1;
 }

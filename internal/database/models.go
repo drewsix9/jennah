@@ -30,6 +30,12 @@ type Job struct {
 	GcpBatchJobName   *string    `spanner:"GcpBatchJobName"`
 	GcpBatchTaskGroup *string    `spanner:"GcpBatchTaskGroup"`
 	EnvVarsJson       *string    `spanner:"EnvVarsJson"`
+	Name              *string    `spanner:"Name"`
+	ResourceProfile   *string    `spanner:"ResourceProfile"`
+	MachineType       *string    `spanner:"MachineType"`
+	BootDiskSizeGb    *int64     `spanner:"BootDiskSizeGb"`
+	UseSpotVms        *bool      `spanner:"UseSpotVms"`
+	ServiceAccount    *string    `spanner:"ServiceAccount"`
 }
 
 // JobStateTransition tracks state changes for audit trail
