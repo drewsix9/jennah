@@ -201,11 +201,6 @@ var logoutCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Println("================================")
-		fmt.Printf("  User ID:   %s\n", cfg.UserID)
-		fmt.Printf("  Email:     %s\n", cfg.Email)
-		fmt.Println("================================")
-		fmt.Println()
 		fmt.Println("✅ Logged out successfully.")
 		return nil
 	},
