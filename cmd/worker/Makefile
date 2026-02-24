@@ -8,7 +8,7 @@ REGION = asia-northeast1
 
 # Build worker binary
 worker-build:
-	go build -o ../../bin/worker main.go
+	go build -o ../../bin/worker .
 
 # Build the worker Docker image
 worker-docker-build:
