@@ -9,9 +9,11 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/google/uuid"
 
 	jennahv1 "github.com/alphauslabs/jennah/gen/proto"
 	jennahv1connect "github.com/alphauslabs/jennah/gen/proto/jennahv1connect"
+	"github.com/alphauslabs/jennah/internal/database"
 )
 
 func (s *GatewayService) resolveTenant(header http.Header) (string, error) {
@@ -44,6 +46,62 @@ func (s *GatewayService) getWorkerClient(routingKey string) (string, jennahv1con
 	}
 
 	return workerIP, workerClient, nil
+}
+
+func dbJobToProto(job *database.Job) *jennahv1.Job {
+	p := &jennahv1.Job{
+		JobId:      job.JobId,
+		TenantId:   job.TenantId,
+		ImageUri:   job.ImageUri,
+		Status:     job.Status,
+		CreatedAt:  job.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:  job.UpdatedAt.Format(time.RFC3339),
+		RetryCount: job.RetryCount,
+		MaxRetries: job.MaxRetries,
+		Commands:   job.Commands,
+	}
+
+	if job.ScheduledAt != nil {
+		p.ScheduledAt = job.ScheduledAt.Format(time.RFC3339)
+	}
+	if job.StartedAt != nil {
+		p.StartedAt = job.StartedAt.Format(time.RFC3339)
+	}
+	if job.CompletedAt != nil {
+		p.CompletedAt = job.CompletedAt.Format(time.RFC3339)
+	}
+	if job.ErrorMessage != nil {
+		p.ErrorMessage = *job.ErrorMessage
+	}
+	if job.GcpBatchJobName != nil {
+		p.GcpBatchJobName = *job.GcpBatchJobName
+	}
+	if job.GcpBatchTaskGroup != nil {
+		p.GcpBatchTaskGroup = *job.GcpBatchTaskGroup
+	}
+	if job.EnvVarsJson != nil {
+		p.EnvVarsJson = *job.EnvVarsJson
+	}
+	if job.Name != nil {
+		p.Name = *job.Name
+	}
+	if job.ResourceProfile != nil {
+		p.ResourceProfile = *job.ResourceProfile
+	}
+	if job.MachineType != nil {
+		p.MachineType = *job.MachineType
+	}
+	if job.BootDiskSizeGb != nil {
+		p.BootDiskSizeGb = *job.BootDiskSizeGb
+	}
+	if job.UseSpotVms != nil {
+		p.UseSpotVms = *job.UseSpotVms
+	}
+	if job.ServiceAccount != nil {
+		p.ServiceAccount = *job.ServiceAccount
+	}
+
+	return p
 }
 
 func (s *GatewayService) GetCurrentTenant(
@@ -88,14 +146,15 @@ func (s *GatewayService) SubmitJob(
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("imageUri is required"))
 	}
 
-	routingKey := fmt.Sprintf("%s-%d", tenantId, time.Now().UnixNano())
-	workerIP, workerClient, err := s.getWorkerClient(routingKey)
+	gatewayJobID := uuid.NewString()
+	workerIP, workerClient, err := s.getWorkerClient(gatewayJobID)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Selected worker: %s for tenant (routing key: %s)", workerIP, routingKey)
+	log.Printf("Selected worker: %s for tenant (routing key: %s)", workerIP, gatewayJobID)
 
 	workerReq := connect.NewRequest(&jennahv1.SubmitJobRequest{
+		JobId:            gatewayJobID,
 		ImageUri:         req.Msg.ImageUri,
 		EnvVars:          req.Msg.EnvVars,
 		ResourceProfile:  req.Msg.ResourceProfile,
@@ -133,21 +192,20 @@ func (s *GatewayService) ListJobs(
 		return nil, err
 	}
 
-	workerIP, workerClient, err := s.getWorkerClient(tenantId)
+	jobs, err := s.dbClient.ListJobs(ctx, tenantId)
 	if err != nil {
-		return nil, err
+		log.Printf("Failed to list jobs from database for tenant %s: %v", tenantId, err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list jobs: %w", err))
 	}
 
-	workerReq := connect.NewRequest(&jennahv1.ListJobsRequest{})
-	workerReq.Header().Set("X-Tenant-Id", tenantId)
-
-	response, err := workerClient.ListJobs(ctx, workerReq)
-	if err != nil {
-		log.Printf("ERROR: Worker %s ListJobs failed: %v", workerIP, err)
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("worker failed: %w", err))
+	protoJobs := make([]*jennahv1.Job, 0, len(jobs))
+	for _, job := range jobs {
+		protoJobs = append(protoJobs, dbJobToProto(job))
 	}
 
-	log.Printf("Successfully listed %d jobs for tenant %s via worker %s", len(response.Msg.Jobs), tenantId, workerIP)
+	response := connect.NewResponse(&jennahv1.ListJobsResponse{Jobs: protoJobs})
+
+	log.Printf("Successfully listed %d jobs for tenant %s directly from database", len(response.Msg.Jobs), tenantId)
 	return response, nil
 }
 
@@ -166,7 +224,7 @@ func (s *GatewayService) CancelJob(
 		return nil, err
 	}
 
-	workerIP, workerClient, err := s.getWorkerClient(tenantId)
+	workerIP, workerClient, err := s.getWorkerClient(req.Msg.JobId)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +257,7 @@ func (s *GatewayService) DeleteJob(
 		return nil, err
 	}
 
-	workerIP, workerClient, err := s.getWorkerClient(tenantId)
+	workerIP, workerClient, err := s.getWorkerClient(req.Msg.JobId)
 	if err != nil {
 		return nil, err
 	}
@@ -232,7 +290,7 @@ func (s *GatewayService) GetJob(
 		return nil, err
 	}
 
-	workerIP, workerClient, err := s.getWorkerClient(tenantId)
+	workerIP, workerClient, err := s.getWorkerClient(req.Msg.JobId)
 	if err != nil {
 		return nil, err
 	}

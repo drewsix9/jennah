@@ -574,6 +574,3 @@ func (gb *gcpBalancer) refresh(ref *subConnRef) {
 
 func (gb *gcpBalancer) Close() {
 }
-
-func (gb *gcpBalancer) ExitIdle() {
-}
