@@ -133,6 +133,7 @@ fmt.Printf("  [%s]  %s\n", time.Now().Format("15:04:05"), lastStatus)
 
 terminalStates := map[string]bool{
 "SUCCEEDED": true,
+"COMPLETED": true,
 "FAILED":    true,
 "CANCELLED": true,
 "DELETED":   true,
