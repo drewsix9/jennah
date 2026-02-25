@@ -94,9 +94,15 @@ func (s *WorkerService) SubmitJob(
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("image_uri is required"))
 	}
 
-	// Generate internal UUID for Spanner primary key.
-	internalJobID := uuid.New().String()
-	log.Printf("Generated internal job ID: %s", internalJobID)
+	// Use canonical job ID from gateway when provided; otherwise generate one
+	// for backward compatibility (e.g., direct worker calls).
+	internalJobID := req.Msg.JobId
+	if internalJobID == "" {
+		internalJobID = uuid.New().String()
+		log.Printf("Generated internal job ID (fallback): %s", internalJobID)
+	} else {
+		log.Printf("Using gateway-provided internal job ID: %s", internalJobID)
+	}
 
 	// Generate cloud provider-compatible job ID.
 	// Use user-provided name if available, otherwise fall back to UUID-based ID.
