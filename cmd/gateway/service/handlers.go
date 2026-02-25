@@ -146,13 +146,12 @@ func (s *GatewayService) SubmitJob(
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("imageUri is required"))
 	}
 
-	routingKey := fmt.Sprintf("%s-%d", tenantId, time.Now().UnixNano())
-	workerIP, workerClient, err := s.getWorkerClient(routingKey)
+	gatewayJobID := uuid.NewString()
+	workerIP, workerClient, err := s.getWorkerClient(gatewayJobID)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Selected worker: %s for tenant (routing key: %s)", workerIP, routingKey)
-	gatewayJobID := uuid.NewString()
+	log.Printf("Selected worker: %s for tenant (routing key: %s)", workerIP, gatewayJobID)
 
 	workerReq := connect.NewRequest(&jennahv1.SubmitJobRequest{
 		JobId:            gatewayJobID,
