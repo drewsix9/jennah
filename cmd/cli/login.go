@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -124,6 +123,37 @@ func githubPollForToken(clientID, deviceCode string, intervalSec, expiresSec int
 		}
 	}
 	return "", fmt.Errorf("timed out waiting for GitHub authorization")
+}
+
+func githubGetPrimaryEmail(accessToken string) (string, error) {
+	req, err := http.NewRequest("GET", "https://api.github.com/user/emails", nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("fetching GitHub emails: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var emails []struct {
+		Email    string `json:"email"`
+		Primary  bool   `json:"primary"`
+		Verified bool   `json:"verified"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&emails); err != nil {
+		return "", fmt.Errorf("decoding emails response: %w", err)
+	}
+	for _, e := range emails {
+		if e.Primary && e.Verified {
+			return e.Email, nil
+		}
+	}
+	return "", fmt.Errorf("no primary verified email found on GitHub account")
 }
 
 func githubGetUser(accessToken string) (*githubUserResp, error) {
@@ -260,12 +290,16 @@ var loginCmd = &cobra.Command{
 			return fmt.Errorf("failed to fetch GitHub user info: %w", err)
 		}
 
+		userID := ghUser.Login
+
 		email := ghUser.Email
 		if email == "" {
-			// GitHub keeps email private for some users — fall back to a noreply address.
-			email = fmt.Sprintf("%d+%s@users.noreply.github.com", ghUser.ID, ghUser.Login)
+			// Email is private — fetch it explicitly via /user/emails.
+			email, err = githubGetPrimaryEmail(accessToken)
+			if err != nil {
+				return fmt.Errorf("could not retrieve GitHub email: %w", err)
+			}
 		}
-		userID := strconv.FormatInt(ghUser.ID, 10)
 
 		// Temporarily save config so newGatewayClient can read headers.
 		cfg := &Config{Email: email, UserID: userID, Provider: "github"}
