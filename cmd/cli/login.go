@@ -52,8 +52,18 @@ type githubUserResp struct {
 	Name  string `json:"name"`
 }
 
+func githubPostJSON(endpoint string, params url.Values) (*http.Response, error) {
+	req, err := http.NewRequest("POST", endpoint, strings.NewReader(params.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+	return http.DefaultClient.Do(req)
+}
+
 func githubRequestDeviceCode(clientID string) (*githubDeviceCodeResp, error) {
-	resp, err := http.PostForm(githubDeviceCodeURL, url.Values{
+	resp, err := githubPostJSON(githubDeviceCodeURL, url.Values{
 		"client_id": {clientID},
 		"scope":     {"read:user,user:email"},
 	})
@@ -79,7 +89,7 @@ func githubPollForToken(clientID, deviceCode string, intervalSec, expiresSec int
 	for time.Now().Before(deadline) {
 		time.Sleep(interval)
 
-		resp, err := http.PostForm(githubTokenURL, url.Values{
+		resp, err := githubPostJSON(githubTokenURL, url.Values{
 			"client_id":   {clientID},
 			"device_code": {deviceCode},
 			"grant_type":  {"urn:ietf:params:oauth:grant-type:device_code"},
