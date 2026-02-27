@@ -243,13 +243,9 @@ func prompt(label string) (string, error) {
 	return strings.TrimSpace(val), nil
 }
 
-// openBrowser tries to open a URL via VS Code, then falls back to OS defaults.
+// openBrowser opens the URL in the default Windows browser from WSL,
+// or falls back to xdg-open on native Linux.
 func openBrowser(rawURL string) {
-	// Try VS Code first (works in WSL and native Linux)
-	if err := exec.Command("code", "--open-url", rawURL).Start(); err == nil {
-		return
-	}
-	// WSL fallback: use cmd.exe
 	if data, err := os.ReadFile("/proc/version"); err == nil {
 		v := strings.ToLower(string(data))
 		if strings.Contains(v, "microsoft") || strings.Contains(v, "wsl") {
@@ -257,7 +253,6 @@ func openBrowser(rawURL string) {
 			return
 		}
 	}
-	// Native Linux fallback
 	exec.Command("xdg-open", rawURL).Start()
 }
 
@@ -300,7 +295,7 @@ var loginCmd = &cobra.Command{
 		var done atomic.Bool
 		go func() {
 			for secs := dcResp.ExpiresIn; secs >= 0 && !done.Load(); secs-- {
-				fmt.Printf("\rWaiting for authorization... \033[31m(expires in %ds)\033[0m", secs)
+				fmt.Printf("\rWaiting for authorization (expires in \033[31m%ds\033[0m)...", secs)
 				time.Sleep(1 * time.Second)
 			}
 		}()

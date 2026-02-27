@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -40,7 +41,13 @@ var tenantWhoamiCmd = &cobra.Command{
 		fmt.Printf("Tenant ID: %s\n", result.TenantID)
 		fmt.Printf("Email:     %s\n", result.UserEmail)
 		fmt.Printf("Provider:  %s\n", result.OAuthProvider)
-		fmt.Printf("Created:   %s\n", result.CreatedAt)
+
+		createdAt := result.CreatedAt
+		if t, err := time.Parse(time.RFC3339, result.CreatedAt); err == nil {
+			pht, _ := time.LoadLocation("Asia/Manila")
+			createdAt = t.In(pht).Format("2006-01-02 15:04:05")
+		}
+		fmt.Printf("Created:   %s\n", createdAt)
 		return nil
 	},
 }
