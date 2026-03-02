@@ -221,7 +221,7 @@ func (s *WorkerService) reconcileActiveJobLeases(ctx context.Context, startup bo
 
 	claimedCount := 0
 	for _, job := range jobs {
-		if job.GcpBatchJobName == nil {
+		if job.GcpBatchJobPath == nil {
 			continue
 		}
 
@@ -235,7 +235,7 @@ func (s *WorkerService) reconcileActiveJobLeases(ctx context.Context, startup bo
 			continue
 		}
 
-		s.startJobPoller(ctx, job.TenantId, job.JobId, *job.GcpBatchJobName, job.Status)
+		s.startJobPoller(ctx, job.TenantId, job.JobId, *job.GcpBatchJobPath, job.Status)
 		claimedCount++
 	}
 

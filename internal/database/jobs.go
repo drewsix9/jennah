@@ -13,7 +13,7 @@ import (
 func (c *Client) InsertJob(ctx context.Context, tenantID, jobID, imageUri string, commands []string) error {
 	_, err := c.client.Apply(ctx, []*spanner.Mutation{
 		spanner.Insert("Jobs",
-			[]string{"TenantId", "JobId", "Status", "ImageUri", "Commands", "CreatedAt", "UpdatedAt", "RetryCount", "MaxRetries", "GcpBatchJobName", "GcpBatchTaskGroup", "OwnerWorkerId", "PreferredWorkerId", "LeaseExpiresAt", "LastHeartbeatAt"},
+			[]string{"TenantId", "JobId", "Status", "ImageUri", "Commands", "CreatedAt", "UpdatedAt", "RetryCount", "MaxRetries", "GcpBatchJobPath", "GcpBatchTaskGroup", "OwnerWorkerId", "PreferredWorkerId", "LeaseExpiresAt", "LastHeartbeatAt"},
 			[]interface{}{tenantID, jobID, JobStatusPending, imageUri, commands, spanner.CommitTimestamp, spanner.CommitTimestamp, 0, 3, nil, nil, nil, nil, nil, nil},
 		),
 	})
@@ -27,7 +27,7 @@ func (c *Client) InsertJobFull(ctx context.Context, job *Job) error {
 			[]string{
 				"TenantId", "JobId", "Status", "ImageUri", "Commands",
 				"CreatedAt", "UpdatedAt", "RetryCount", "MaxRetries",
-				"GcpBatchJobName", "GcpBatchTaskGroup", "EnvVarsJson",
+				"GcpBatchJobPath", "GcpBatchTaskGroup", "EnvVarsJson",
 				"Name", "ResourceProfile", "MachineType",
 				"BootDiskSizeGb", "UseSpotVms", "ServiceAccount",
 				"OwnerWorkerId", "PreferredWorkerId", "LeaseExpiresAt", "LastHeartbeatAt",
@@ -35,7 +35,7 @@ func (c *Client) InsertJobFull(ctx context.Context, job *Job) error {
 			[]interface{}{
 				job.TenantId, job.JobId, job.Status, job.ImageUri, job.Commands,
 				spanner.CommitTimestamp, spanner.CommitTimestamp, job.RetryCount, job.MaxRetries,
-				job.GcpBatchJobName, job.GcpBatchTaskGroup, job.EnvVarsJson,
+				job.GcpBatchJobPath, job.GcpBatchTaskGroup, job.EnvVarsJson,
 				job.Name, job.ResourceProfile, job.MachineType,
 				job.BootDiskSizeGb, job.UseSpotVms, job.ServiceAccount,
 				job.OwnerWorkerId, job.PreferredWorkerId, job.LeaseExpiresAt, job.LastHeartbeatAt,
@@ -49,7 +49,7 @@ func (c *Client) InsertJobFull(ctx context.Context, job *Job) error {
 func (c *Client) GetJob(ctx context.Context, tenantID, jobID string) (*Job, error) {
 	row, err := c.client.Single().ReadRow(ctx, "Jobs",
 		spanner.Key{tenantID, jobID},
-		[]string{"TenantId", "JobId", "Status", "ImageUri", "Commands", "CreatedAt", "UpdatedAt", "ScheduledAt", "StartedAt", "CompletedAt", "RetryCount", "MaxRetries", "ErrorMessage", "GcpBatchJobName", "GcpBatchTaskGroup", "EnvVarsJson", "Name", "ResourceProfile", "MachineType", "BootDiskSizeGb", "UseSpotVms", "ServiceAccount", "OwnerWorkerId", "PreferredWorkerId", "LeaseExpiresAt", "LastHeartbeatAt"},
+		[]string{"TenantId", "JobId", "Status", "ImageUri", "Commands", "CreatedAt", "UpdatedAt", "ScheduledAt", "StartedAt", "CompletedAt", "RetryCount", "MaxRetries", "ErrorMessage", "GcpBatchJobPath", "GcpBatchTaskGroup", "EnvVarsJson", "Name", "ResourceProfile", "MachineType", "BootDiskSizeGb", "UseSpotVms", "ServiceAccount", "OwnerWorkerId", "PreferredWorkerId", "LeaseExpiresAt", "LastHeartbeatAt"},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get job: %w", err)
@@ -66,7 +66,7 @@ func (c *Client) GetJob(ctx context.Context, tenantID, jobID string) (*Job, erro
 // ListJobs returns all jobs for a tenant
 func (c *Client) ListJobs(ctx context.Context, tenantID string) ([]*Job, error) {
 	stmt := spanner.Statement{
-		SQL: `SELECT TenantId, JobId, Status, ImageUri, Commands, CreatedAt, UpdatedAt, ScheduledAt, StartedAt, CompletedAt, RetryCount, MaxRetries, ErrorMessage, GcpBatchJobName, GcpBatchTaskGroup, EnvVarsJson, Name, ResourceProfile, MachineType, BootDiskSizeGb, UseSpotVms, ServiceAccount, OwnerWorkerId, PreferredWorkerId, LeaseExpiresAt, LastHeartbeatAt
+		SQL: `SELECT TenantId, JobId, Status, ImageUri, Commands, CreatedAt, UpdatedAt, ScheduledAt, StartedAt, CompletedAt, RetryCount, MaxRetries, ErrorMessage, GcpBatchJobPath, GcpBatchTaskGroup, EnvVarsJson, Name, ResourceProfile, MachineType, BootDiskSizeGb, UseSpotVms, ServiceAccount, OwnerWorkerId, PreferredWorkerId, LeaseExpiresAt, LastHeartbeatAt
 		      FROM Jobs 
 		      WHERE TenantId = @tenantId 
 		      ORDER BY CreatedAt DESC`,
@@ -101,7 +101,7 @@ func (c *Client) ListJobs(ctx context.Context, tenantID string) ([]*Job, error) 
 // ListJobsByStatus returns jobs for a tenant filtered by status
 func (c *Client) ListJobsByStatus(ctx context.Context, tenantID, status string) ([]*Job, error) {
 	stmt := spanner.Statement{
-		SQL: `SELECT TenantId, JobId, Status, ImageUri, Commands, CreatedAt, UpdatedAt, ScheduledAt, StartedAt, CompletedAt, RetryCount, MaxRetries, ErrorMessage, GcpBatchJobName, GcpBatchTaskGroup, EnvVarsJson, Name, ResourceProfile, MachineType, BootDiskSizeGb, UseSpotVms, ServiceAccount, OwnerWorkerId, PreferredWorkerId, LeaseExpiresAt, LastHeartbeatAt
+		SQL: `SELECT TenantId, JobId, Status, ImageUri, Commands, CreatedAt, UpdatedAt, ScheduledAt, StartedAt, CompletedAt, RetryCount, MaxRetries, ErrorMessage, GcpBatchJobPath, GcpBatchTaskGroup, EnvVarsJson, Name, ResourceProfile, MachineType, BootDiskSizeGb, UseSpotVms, ServiceAccount, OwnerWorkerId, PreferredWorkerId, LeaseExpiresAt, LastHeartbeatAt
 		      FROM Jobs@{FORCE_INDEX=JobsByStatus}
 		      WHERE TenantId = @tenantId AND Status = @status 
 		      ORDER BY CreatedAt DESC`,
@@ -148,16 +148,16 @@ func (c *Client) UpdateJobStatus(ctx context.Context, tenantID, jobID, status st
 	return nil
 }
 
-// UpdateJobStatusAndGcpBatchJobName updates the status and GCP Batch job name of a job
-func (c *Client) UpdateJobStatusAndGcpBatchJobName(ctx context.Context, tenantID, jobID, status, gcpBatchJobName string) error {
+// UpdateJobStatusAndGcpBatchJobPath updates the status and GCP Batch job path of a job.
+func (c *Client) UpdateJobStatusAndGcpBatchJobPath(ctx context.Context, tenantID, jobID, status, gcpBatchJobPath string) error {
 	_, err := c.client.Apply(ctx, []*spanner.Mutation{
 		spanner.Update("Jobs",
-			[]string{"TenantId", "JobId", "Status", "GcpBatchJobName", "UpdatedAt"},
-			[]any{tenantID, jobID, status, gcpBatchJobName, spanner.CommitTimestamp},
+			[]string{"TenantId", "JobId", "Status", "GcpBatchJobPath", "UpdatedAt"},
+			[]any{tenantID, jobID, status, gcpBatchJobPath, spanner.CommitTimestamp},
 		),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to update job status and GCP Batch job name: %w", err)
+		return fmt.Errorf("failed to update job status and GCP Batch job path: %w", err)
 	}
 	return nil
 }
@@ -251,10 +251,10 @@ func (c *Client) DeleteJob(ctx context.Context, tenantID, jobID string) error {
 // ListActiveJobs returns all active (non-terminal) jobs across tenants that have a cloud resource path.
 func (c *Client) ListActiveJobs(ctx context.Context) ([]*Job, error) {
 	stmt := spanner.Statement{
-		SQL: `SELECT TenantId, JobId, Status, ImageUri, Commands, CreatedAt, UpdatedAt, ScheduledAt, StartedAt, CompletedAt, RetryCount, MaxRetries, ErrorMessage, GcpBatchJobName, GcpBatchTaskGroup, EnvVarsJson, Name, ResourceProfile, MachineType, BootDiskSizeGb, UseSpotVms, ServiceAccount, OwnerWorkerId, PreferredWorkerId, LeaseExpiresAt, LastHeartbeatAt
+		SQL: `SELECT TenantId, JobId, Status, ImageUri, Commands, CreatedAt, UpdatedAt, ScheduledAt, StartedAt, CompletedAt, RetryCount, MaxRetries, ErrorMessage, GcpBatchJobPath, GcpBatchTaskGroup, EnvVarsJson, Name, ResourceProfile, MachineType, BootDiskSizeGb, UseSpotVms, ServiceAccount, OwnerWorkerId, PreferredWorkerId, LeaseExpiresAt, LastHeartbeatAt
 		      FROM Jobs
 		      WHERE Status IN (@pending, @scheduled, @running)
-		        AND GcpBatchJobName IS NOT NULL
+		        AND GcpBatchJobPath IS NOT NULL
 		      ORDER BY UpdatedAt DESC`,
 		Params: map[string]interface{}{
 			"pending":   JobStatusPending,

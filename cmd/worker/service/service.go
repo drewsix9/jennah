@@ -10,6 +10,7 @@ import (
 	"github.com/alphauslabs/jennah/internal/batch"
 	"github.com/alphauslabs/jennah/internal/config"
 	"github.com/alphauslabs/jennah/internal/database"
+	"github.com/alphauslabs/jennah/internal/dispatcher"
 )
 
 // WorkerService implements the DeploymentService RPC handlers for the worker.
@@ -17,6 +18,7 @@ type WorkerService struct {
 	jennahv1connect.UnimplementedDeploymentServiceHandler
 	dbClient       *database.Client
 	batchProvider  batch.Provider
+	dispatcher     *dispatcher.Dispatcher
 	jobConfig      *config.JobConfigFile
 	workerID       string
 	leaseTTL       time.Duration
@@ -30,6 +32,7 @@ type WorkerService struct {
 func NewWorkerService(
 	dbClient *database.Client,
 	batchProvider batch.Provider,
+	d *dispatcher.Dispatcher,
 	jobConfig *config.JobConfigFile,
 	gcpBatchClient *gcpbatch.Client,
 	workerID string,
@@ -39,6 +42,7 @@ func NewWorkerService(
 	return &WorkerService{
 		dbClient:       dbClient,
 		batchProvider:  batchProvider,
+		dispatcher:     d,
 		jobConfig:      jobConfig,
 		workerID:       workerID,
 		leaseTTL:       leaseTTL,

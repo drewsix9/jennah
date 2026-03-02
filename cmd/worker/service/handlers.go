@@ -15,8 +15,8 @@ import (
 
 	jennahv1 "github.com/alphauslabs/jennah/gen/proto"
 	"github.com/alphauslabs/jennah/internal/batch"
-	"github.com/alphauslabs/jennah/internal/config"
 	"github.com/alphauslabs/jennah/internal/database"
+	"github.com/alphauslabs/jennah/internal/navigator"
 )
 
 // dbJobToProto converts a database Job to a proto Job message.
@@ -45,8 +45,8 @@ func dbJobToProto(job *database.Job) *jennahv1.Job {
 	if job.ErrorMessage != nil {
 		p.ErrorMessage = *job.ErrorMessage
 	}
-	if job.GcpBatchJobName != nil {
-		p.GcpBatchJobName = *job.GcpBatchJobName
+	if job.GcpBatchJobPath != nil {
+		p.GcpBatchJobPath = *job.GcpBatchJobPath
 	}
 	if job.GcpBatchTaskGroup != nil {
 		p.GcpBatchTaskGroup = *job.GcpBatchTaskGroup
@@ -154,50 +154,33 @@ func (s *WorkerService) SubmitJob(
 	log.Printf("Job %s saved to database with PENDING status", internalJobID)
 
 	// Submit job to cloud batch provider.
-	// Resolve resource requirements: machine type, named preset merged with any per-field override.
-	var resourceOverride *config.ResourceOverride
-	if o := req.Msg.ResourceOverride; o != nil {
-		resourceOverride = &config.ResourceOverride{
-			CPUMillis:             o.CpuMillis,
-			MemoryMiB:             o.MemoryMib,
-			MaxRunDurationSeconds: o.MaxRunDurationSeconds,
+	// Use the navigator to classify the job and build configuration, then
+	// dispatch to the appropriate provider (Cloud Tasks / Cloud Run / Cloud Batch).
+	plan, err := navigator.Navigate(req.Msg, internalJobID, s.jobConfig)
+	if err != nil {
+		log.Printf("Error building navigation plan: %v", err)
+		failErr := s.dbClient.FailJob(ctx, tenantID, internalJobID, err.Error())
+		if failErr != nil {
+			log.Printf("Error updating job status to FAILED: %v", failErr)
 		}
+		return nil, connect.NewError(
+			connect.CodeInternal,
+			fmt.Errorf("failed to build execution plan: %w", err),
+		)
 	}
+	log.Printf("Navigation plan: %s (reason: %s)", plan.Summary, plan.ClassifyReason)
 
-	// Extract machine type as string for resource resolution
-	machineType := ""
-	if req.Msg.MachineType != "" {
-		machineType = req.Msg.MachineType
+	// Override the plan's JobID with the provider-compatible one we generated.
+	plan.Config.JobID = providerJobID
+	plan.Config.RequestID = internalJobID
+
+	var jobResult *batch.JobResult
+	if s.dispatcher != nil {
+		jobResult, err = s.dispatcher.SubmitJob(ctx, plan.AssignedService, plan.Config)
+	} else {
+		// Fallback: use the single batchProvider if dispatcher is not configured.
+		jobResult, err = s.batchProvider.SubmitJob(ctx, plan.Config)
 	}
-
-	// Build batch job configuration with all available fields
-	batchJobConfig := batch.JobConfig{
-		JobID:               providerJobID,
-		ImageURI:            req.Msg.ImageUri,
-		EnvVars:             req.Msg.EnvVars,
-		Resources:           s.jobConfig.ResolveResources(machineType, req.Msg.ResourceProfile, resourceOverride),
-		MachineType:         req.Msg.MachineType,
-		BootDiskSizeGb:      req.Msg.BootDiskSizeGb,
-		UseSpotVMs:          req.Msg.UseSpotVms,
-		ServiceAccount:      req.Msg.ServiceAccount,
-		Commands:            req.Msg.Commands,
-		ContainerEntrypoint: "", // Not exposed in proto yet
-		RequestID:           internalJobID, // Use internal job ID as idempotency key
-	}
-
-	// Configure task group if needed (currently default: 1 task)
-	// Future: allow SubmitJobRequest to specify task groups
-	batchJobConfig.TaskGroup = &batch.TaskGroupConfig{
-		TaskCount:        1,
-		Parallelism:      0,
-		SchedulingPolicy: "AS_SOON_AS_POSSIBLE",
-		TaskCountPerNode: 0,
-		RequireHostsFile: false,
-		PermissiveSsh:    false,
-		RunAsNonRoot:     false,
-	}
-
-	jobResult, err := s.batchProvider.SubmitJob(ctx, batchJobConfig)
 	if err != nil {
 		log.Printf("Error submitting job to batch provider: %v", err)
 		failErr := s.dbClient.FailJob(ctx, tenantID, internalJobID, err.Error())
@@ -217,7 +200,7 @@ func (s *WorkerService) SubmitJob(
 		statusToSet = database.JobStatusRunning
 	}
 
-	err = s.dbClient.UpdateJobStatusAndGcpBatchJobName(ctx, tenantID, internalJobID, statusToSet, jobResult.CloudResourcePath)
+	err = s.dbClient.UpdateJobStatusAndGcpBatchJobPath(ctx, tenantID, internalJobID, statusToSet, jobResult.CloudResourcePath)
 	if err != nil {
 		log.Printf("Error updating job status to %s: %v", statusToSet, err)
 		return nil, connect.NewError(
@@ -225,7 +208,7 @@ func (s *WorkerService) SubmitJob(
 			fmt.Errorf("failed to update job status: %w", err),
 		)
 	}
-	log.Printf("Job %s status updated to %s with GCP Batch job name: %s", internalJobID, statusToSet, jobResult.CloudResourcePath)
+	log.Printf("Job %s status updated to %s with GCP Batch job path: %s", internalJobID, statusToSet, jobResult.CloudResourcePath)
 
 	// Start background polling goroutine to track job status.
 	s.startJobPoller(ctx, tenantID, internalJobID, jobResult.CloudResourcePath, statusToSet)
@@ -309,9 +292,9 @@ func (s *WorkerService) CancelJob(
 	}
 
 	// Cancel job in GCP Batch.
-	if job.GcpBatchJobName != nil {
+	if job.GcpBatchJobPath != nil {
 		cancelReq := &batchpb.CancelJobRequest{
-			Name: *job.GcpBatchJobName,
+			Name: *job.GcpBatchJobPath,
 		}
 		op, err := s.gcpBatchClient.CancelJob(ctx, cancelReq)
 		if err != nil {
@@ -380,9 +363,9 @@ func (s *WorkerService) DeleteJob(
 	}
 
 	// Delete job from GCP Batch.
-	if job.GcpBatchJobName != nil {
+	if job.GcpBatchJobPath != nil {
 		deleteReq := &batchpb.DeleteJobRequest{
-			Name: *job.GcpBatchJobName,
+			Name: *job.GcpBatchJobPath,
 		}
 		op, err := s.gcpBatchClient.DeleteJob(ctx, deleteReq)
 		if err != nil {

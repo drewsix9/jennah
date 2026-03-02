@@ -7,11 +7,12 @@
 package jennahv1
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -516,7 +517,7 @@ type Job struct {
 	RetryCount        int64                  `protobuf:"varint,10,opt,name=retry_count,json=retryCount,proto3" json:"retry_count,omitempty"`
 	MaxRetries        int64                  `protobuf:"varint,11,opt,name=max_retries,json=maxRetries,proto3" json:"max_retries,omitempty"`
 	ErrorMessage      string                 `protobuf:"bytes,12,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
-	GcpBatchJobName   string                 `protobuf:"bytes,13,opt,name=gcp_batch_job_name,json=gcpBatchJobName,proto3" json:"gcp_batch_job_name,omitempty"`
+	GcpBatchJobPath   string                 `protobuf:"bytes,13,opt,name=gcp_batch_job_path,json=gcpBatchJobPath,proto3" json:"gcp_batch_job_path,omitempty"`
 	Commands          []string               `protobuf:"bytes,14,rep,name=commands,proto3" json:"commands,omitempty"`
 	EnvVarsJson       string                 `protobuf:"bytes,15,opt,name=env_vars_json,json=envVarsJson,proto3" json:"env_vars_json,omitempty"`
 	GcpBatchTaskGroup string                 `protobuf:"bytes,16,opt,name=gcp_batch_task_group,json=gcpBatchTaskGroup,proto3" json:"gcp_batch_task_group,omitempty"`
@@ -650,9 +651,9 @@ func (x *Job) GetErrorMessage() string {
 	return ""
 }
 
-func (x *Job) GetGcpBatchJobName() string {
+func (x *Job) GetGcpBatchJobPath() string {
 	if x != nil {
-		return x.GcpBatchJobName
+		return x.GcpBatchJobPath
 	}
 	return ""
 }
@@ -1161,7 +1162,7 @@ const file_proto_jennah_proto_rawDesc = "" +
 	"\vmax_retries\x18\v \x01(\x03R\n" +
 	"maxRetries\x12#\n" +
 	"\rerror_message\x18\f \x01(\tR\ferrorMessage\x12+\n" +
-	"\x12gcp_batch_job_name\x18\r \x01(\tR\x0fgcpBatchJobName\x12\x1a\n" +
+	"\x12gcp_batch_job_path\x18\r \x01(\tR\x0fgcpBatchJobPath\x12\x1a\n" +
 	"\bcommands\x18\x0e \x03(\tR\bcommands\x12\"\n" +
 	"\renv_vars_json\x18\x0f \x01(\tR\venvVarsJson\x12/\n" +
 	"\x14gcp_batch_task_group\x18\x10 \x01(\tR\x11gcpBatchTaskGroup\x12\x12\n" +

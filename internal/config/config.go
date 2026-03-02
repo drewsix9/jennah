@@ -92,7 +92,7 @@ func LoadFromEnv() (*Config, error) {
 func (c *Config) Validate() error {
 	// Validate batch provider configuration
 	switch c.BatchProvider.Provider {
-	case "gcp":
+	case "gcp", "gcp-cloudtasks", "gcp-cloudrun":
 		if c.BatchProvider.ProjectID == "" {
 			return fmt.Errorf("BATCH_PROJECT_ID is required for GCP batch provider")
 		}

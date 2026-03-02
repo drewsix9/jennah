@@ -7,7 +7,8 @@ import (
 
 // Provider defines the interface for cloud batch service implementations.
 // This abstraction enables Jennah to work with different cloud providers
-// (GCP Batch, AWS Batch, Azure Batch) without changing core business logic.
+// (GCP Batch, AWS Batch, Azure Batch) and different GCP services
+// (Cloud Tasks, Cloud Run Jobs, Cloud Batch) without changing core business logic.
 type Provider interface {
 	// SubmitJob submits a new batch job to the cloud provider.
 	// Returns the internal job ID and cloud resource path (e.g., GCP: projects/.../jobs/..., AWS: ARN).
@@ -22,6 +23,10 @@ type Provider interface {
 	// ListJobs lists all jobs for the configured project/account.
 	// Returns cloud resource paths.
 	ListJobs(ctx context.Context) ([]string, error)
+
+	// ServiceType returns the GCP service type this provider implements.
+	// Examples: "CLOUD_TASKS", "CLOUD_RUN_JOB", "CLOUD_BATCH".
+	ServiceType() string
 }
 
 // JobConfig contains the configuration for submitting a batch job.
@@ -237,11 +242,22 @@ type ProviderConfig struct {
 	ProviderOptions map[string]string
 }
 
+// Service type constants used by Provider.ServiceType().
+const (
+	ServiceTypeCloudTasks  = "CLOUD_TASKS"
+	ServiceTypeCloudRunJob = "CLOUD_RUN_JOB"
+	ServiceTypeCloudBatch  = "CLOUD_BATCH"
+)
+
 // NewProvider creates a new batch provider based on the configuration.
 func NewProvider(ctx context.Context, config ProviderConfig) (Provider, error) {
 	switch config.Provider {
 	case "gcp":
 		return newGCPProvider(ctx, config)
+	case "gcp-cloudtasks":
+		return newGCPCloudTasksProvider(ctx, config)
+	case "gcp-cloudrun":
+		return newGCPCloudRunProvider(ctx, config)
 	case "aws":
 		return newAWSProvider(ctx, config)
 	case "azure":
@@ -253,14 +269,26 @@ func NewProvider(ctx context.Context, config ProviderConfig) (Provider, error) {
 
 // Provider-specific constructors (implemented in separate files)
 var (
-	newGCPProvider   func(context.Context, ProviderConfig) (Provider, error)
-	newAWSProvider   func(context.Context, ProviderConfig) (Provider, error)
-	newAzureProvider func(context.Context, ProviderConfig) (Provider, error)
+	newGCPProvider           func(context.Context, ProviderConfig) (Provider, error)
+	newGCPCloudTasksProvider func(context.Context, ProviderConfig) (Provider, error)
+	newGCPCloudRunProvider   func(context.Context, ProviderConfig) (Provider, error)
+	newAWSProvider           func(context.Context, ProviderConfig) (Provider, error)
+	newAzureProvider         func(context.Context, ProviderConfig) (Provider, error)
 )
 
 // RegisterGCPProvider registers the GCP batch provider constructor.
 func RegisterGCPProvider(fn func(context.Context, ProviderConfig) (Provider, error)) {
 	newGCPProvider = fn
+}
+
+// RegisterGCPCloudTasksProvider registers the GCP Cloud Tasks provider constructor.
+func RegisterGCPCloudTasksProvider(fn func(context.Context, ProviderConfig) (Provider, error)) {
+	newGCPCloudTasksProvider = fn
+}
+
+// RegisterGCPCloudRunProvider registers the GCP Cloud Run Jobs provider constructor.
+func RegisterGCPCloudRunProvider(fn func(context.Context, ProviderConfig) (Provider, error)) {
+	newGCPCloudRunProvider = fn
 }
 
 // RegisterAWSProvider registers the AWS batch provider constructor.

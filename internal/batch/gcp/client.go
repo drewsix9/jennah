@@ -24,6 +24,11 @@ type GCPBatchProvider struct {
 	region    string
 }
 
+// ServiceType returns the service type identifier for GCP Batch.
+func (p *GCPBatchProvider) ServiceType() string {
+	return batchpkg.ServiceTypeCloudBatch
+}
+
 // NewGCPBatchProvider creates a new GCP Batch provider.
 func NewGCPBatchProvider(ctx context.Context, config batchpkg.ProviderConfig) (batchpkg.Provider, error) {
 	if config.ProjectID == "" {

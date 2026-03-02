@@ -17,9 +17,10 @@ import (
 	"github.com/alphauslabs/jennah/cmd/worker/service"
 	"github.com/alphauslabs/jennah/gen/proto/jennahv1connect"
 	"github.com/alphauslabs/jennah/internal/batch"
-	_ "github.com/alphauslabs/jennah/internal/batch/gcp" // Register GCP provider
+	_ "github.com/alphauslabs/jennah/internal/batch/gcp" // Register GCP providers (Cloud Batch, Cloud Tasks, Cloud Run)
 	"github.com/alphauslabs/jennah/internal/config"
 	"github.com/alphauslabs/jennah/internal/database"
+	"github.com/alphauslabs/jennah/internal/dispatcher"
 )
 
 var serveCmd = &cobra.Command{
@@ -51,13 +52,67 @@ func runServe(cmd *cobra.Command, args []string) error {
 	log.Printf("Connected to database: %s/%s/%s",
 		cfg.Database.ProjectID, cfg.Database.Instance, cfg.Database.Database)
 
-	// Initialize batch provider.
+	// Initialize batch provider (Cloud Batch — always required for COMPLEX jobs).
 	batchProvider, err := batch.NewProvider(ctx, cfg.BatchProvider)
 	if err != nil {
 		return fmt.Errorf("failed to create batch provider: %w", err)
 	}
 	log.Printf("Initialized %s batch provider in region: %s",
 		cfg.BatchProvider.Provider, cfg.BatchProvider.Region)
+
+	// Initialize dispatcher with all available GCP service providers.
+	dispatcherOpts := []dispatcher.Option{
+		dispatcher.WithCloudBatch(batchProvider),
+	}
+
+	// Cloud Tasks provider (SIMPLE jobs) — optional, enabled via CLOUD_TASKS_TARGET_URL.
+	cloudTasksTargetURL := os.Getenv("CLOUD_TASKS_TARGET_URL")
+	if cloudTasksTargetURL != "" {
+		ctConfig := batch.ProviderConfig{
+			Provider:  "gcp-cloudtasks",
+			ProjectID: cfg.BatchProvider.ProjectID,
+			Region:    cfg.BatchProvider.Region,
+			ProviderOptions: map[string]string{
+				"target_url": cloudTasksTargetURL,
+				"queue_id":   os.Getenv("CLOUD_TASKS_QUEUE_ID"),
+			},
+		}
+		ctProvider, err := batch.NewProvider(ctx, ctConfig)
+		if err != nil {
+			log.Printf("Warning: failed to create Cloud Tasks provider: %v (SIMPLE jobs will fail)", err)
+		} else {
+			dispatcherOpts = append(dispatcherOpts, dispatcher.WithCloudTasks(ctProvider))
+			log.Println("Initialized Cloud Tasks provider for SIMPLE jobs")
+		}
+	} else {
+		log.Println("Cloud Tasks provider not configured (set CLOUD_TASKS_TARGET_URL to enable)")
+	}
+
+	// Cloud Run Jobs provider (MEDIUM jobs) — optional, enabled via CLOUD_RUN_ENABLED=true.
+	if os.Getenv("CLOUD_RUN_ENABLED") == "true" {
+		crConfig := batch.ProviderConfig{
+			Provider:        "gcp-cloudrun",
+			ProjectID:       cfg.BatchProvider.ProjectID,
+			Region:          cfg.BatchProvider.Region,
+			ProviderOptions: make(map[string]string),
+		}
+		crProvider, err := batch.NewProvider(ctx, crConfig)
+		if err != nil {
+			log.Printf("Warning: failed to create Cloud Run Jobs provider: %v (MEDIUM jobs will fail)", err)
+		} else {
+			dispatcherOpts = append(dispatcherOpts, dispatcher.WithCloudRunJobs(crProvider))
+			log.Println("Initialized Cloud Run Jobs provider for MEDIUM jobs")
+		}
+	} else {
+		log.Println("Cloud Run Jobs provider not configured (set CLOUD_RUN_ENABLED=true to enable)")
+	}
+
+	d, err := dispatcher.New(dispatcherOpts...)
+	if err != nil {
+		return fmt.Errorf("failed to create dispatcher: %w", err)
+	}
+	log.Printf("Dispatcher initialized with %d service tier(s)",
+		len(dispatcherOpts))
 
 	// Load job configuration from JSON file.
 	jobConfigPath := os.Getenv("JOB_CONFIG_PATH")
@@ -97,7 +152,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	leaseTTL := time.Duration(leaseTTLSeconds) * time.Second
 	claimInterval := time.Duration(claimIntervalSeconds) * time.Second
 
-	workerService := service.NewWorkerService(dbClient, batchProvider, jobConfig, gcpBatchClient, workerID, leaseTTL, claimInterval)
+	workerService := service.NewWorkerService(dbClient, batchProvider, d, jobConfig, gcpBatchClient, workerID, leaseTTL, claimInterval)
 	log.Printf("Worker identity: %s (lease_ttl=%s, claim_interval=%s)", workerID, leaseTTL, claimInterval)
 
 	// Resume polling for active jobs from before restart.

@@ -74,8 +74,8 @@ func dbJobToProto(job *database.Job) *jennahv1.Job {
 	if job.ErrorMessage != nil {
 		p.ErrorMessage = *job.ErrorMessage
 	}
-	if job.GcpBatchJobName != nil {
-		p.GcpBatchJobName = *job.GcpBatchJobName
+	if job.GcpBatchJobPath != nil {
+		p.GcpBatchJobPath = *job.GcpBatchJobPath
 	}
 	if job.GcpBatchTaskGroup != nil {
 		p.GcpBatchTaskGroup = *job.GcpBatchTaskGroup

@@ -26,7 +26,7 @@ CREATE TABLE Jobs (
   MaxRetries INT64 NOT NULL DEFAULT (3),
   ErrorMessage STRING(MAX),
   -- GCP Batch Integration
-  GcpBatchJobName STRING(1024),  -- GCP Batch job resource path: projects/{projectId}/locations/{region}/jobs/{jobId}
+  GcpBatchJobPath STRING(1024),  -- GCP Batch job resource path: projects/{projectId}/locations/{region}/jobs/{jobId}
   GcpBatchTaskGroup STRING(1024),  -- GCP Batch task group identifier
   EnvVarsJson STRING(MAX),  -- Environment variables stored as JSON
   -- Worker lease ownership for failover

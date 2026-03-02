@@ -154,6 +154,11 @@ func (p *AWSBatchProvider) ListJobs(ctx context.Context) ([]string, error) {
 	return nil, fmt.Errorf("AWS Batch provider not fully implemented yet")
 }
 
+// ServiceType returns the service type identifier for AWS Batch.
+func (p *AWSBatchProvider) ServiceType() string {
+	return "AWS_BATCH"
+}
+
 // Close cleans up AWS Batch client resources.
 func (p *AWSBatchProvider) Close() error {
 	// AWS SDK v2 clients don't require explicit closing

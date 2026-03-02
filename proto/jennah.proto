@@ -114,7 +114,7 @@ message Job {
   int64 retry_count = 10;
   int64 max_retries = 11;
   string error_message = 12;
-  string gcp_batch_job_name = 13;
+  string gcp_batch_job_path = 13;
   repeated string commands = 14;
   string env_vars_json = 15;
   string gcp_batch_task_group = 16;
