@@ -8,3 +8,16 @@ bin/
 cmd/cli/jennah
 cmd/cli-spanner/
 cmd/cli-ui-test/
+docs/r9ight/DELIVERY_SUMMARY.md
+docs/r9ight/DISTRIBUTED_WORKLOAD_PROCESSING.md
+docs/r9ight/GATE_2_IMPLEMENTATION_AND_MERGE_GUIDE.md
+docs/r9ight/GCP_BATCH_CONFIRMATIONS.md
+docs/r9ight/QUICK_START_WHAT_TO_DO_NOW.md
+docs/r9ight/README.md
+docs/r9ight/TASK_1_1_RESEARCH_FINDINGS.md
+docs/r9ight/TASK_1_2_COMPLETION_SUMMARY.md
+docs/r9ight/TASK_1_2_PROTO_DESIGN.md
+docs/r9ight/TASK_1_2_TEAM_REVIEW_RECOMMENDATIONS.md
+docs/r9ight/TASK_1_3_GO_ARCHITECTURE.md
+docs/r9ight/TASK_1_5_DEPENDENCY_INTEGRATION.md
+docs/r9ight/TASK_TRACKING.md

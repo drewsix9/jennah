@@ -5,9 +5,12 @@ cel.dev/expr
 ## explicit; go 1.24.0
 cloud.google.com/go
 cloud.google.com/go/civil
+cloud.google.com/go/internal
 cloud.google.com/go/internal/fields
+cloud.google.com/go/internal/optional
 cloud.google.com/go/internal/protostruct
 cloud.google.com/go/internal/trace
+cloud.google.com/go/internal/version
 # cloud.google.com/go/auth v0.17.0
 ## explicit; go 1.24.0
 cloud.google.com/go/auth
@@ -46,6 +49,7 @@ cloud.google.com/go/cloudtasks/internal
 cloud.google.com/go/compute/metadata
 # cloud.google.com/go/iam v1.5.3
 ## explicit; go 1.24.0
+cloud.google.com/go/iam
 cloud.google.com/go/iam/apiv1/iampb
 # cloud.google.com/go/longrunning v0.7.0
 ## explicit; go 1.24.0
@@ -68,6 +72,13 @@ cloud.google.com/go/spanner
 cloud.google.com/go/spanner/apiv1
 cloud.google.com/go/spanner/apiv1/spannerpb
 cloud.google.com/go/spanner/internal
+# cloud.google.com/go/storage v1.56.0
+## explicit; go 1.23.0
+cloud.google.com/go/storage
+cloud.google.com/go/storage/experimental
+cloud.google.com/go/storage/internal
+cloud.google.com/go/storage/internal/apiv2
+cloud.google.com/go/storage/internal/apiv2/storagepb
 # connectrpc.com/connect v1.19.1
 ## explicit; go 1.24.0
 connectrpc.com/connect
@@ -80,6 +91,12 @@ github.com/GoogleCloudPlatform/grpc-gcp-go/grpcgcp/multiendpoint
 # github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.29.0
 ## explicit; go 1.23.0
 github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp
+# github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.53.0
+## explicit; go 1.23.0
+github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric
+# github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.53.0
+## explicit; go 1.23.0
+github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping
 # github.com/buraksezer/consistent v0.10.0
 ## explicit; go 1.9
 github.com/buraksezer/consistent
@@ -354,19 +371,24 @@ golang.org/x/time/rate
 ## explicit; go 1.24.0
 google.golang.org/api/googleapi
 google.golang.org/api/googleapi/transport
+google.golang.org/api/iamcredentials/v1
 google.golang.org/api/internal
 google.golang.org/api/internal/cert
+google.golang.org/api/internal/gensupport
 google.golang.org/api/internal/impersonate
 google.golang.org/api/internal/third_party/uritemplates
 google.golang.org/api/iterator
 google.golang.org/api/option
 google.golang.org/api/option/internaloption
+google.golang.org/api/storage/v1
+google.golang.org/api/transport
 google.golang.org/api/transport/grpc
 google.golang.org/api/transport/http
 # google.golang.org/genproto v0.0.0-20250603155806-513f23925822
 ## explicit; go 1.23.0
 google.golang.org/genproto/googleapis/cloud/location
 google.golang.org/genproto/googleapis/type/calendarperiod
+google.golang.org/genproto/googleapis/type/date
 google.golang.org/genproto/googleapis/type/expr
 google.golang.org/genproto/googleapis/type/timeofday
 # google.golang.org/genproto/googleapis/api v0.0.0-20251111163417-95abcf5c77ba
