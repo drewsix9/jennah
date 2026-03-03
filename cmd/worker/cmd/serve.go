@@ -73,8 +73,9 @@ func runServe(cmd *cobra.Command, args []string) error {
 			ProjectID: cfg.BatchProvider.ProjectID,
 			Region:    cfg.BatchProvider.Region,
 			ProviderOptions: map[string]string{
-				"target_url": cloudTasksTargetURL,
-				"queue_id":   os.Getenv("CLOUD_TASKS_QUEUE_ID"),
+				"target_url":      cloudTasksTargetURL,
+				"queue_id":        os.Getenv("CLOUD_TASKS_QUEUE_ID"),
+				"service_account": os.Getenv("CLOUD_TASKS_SERVICE_ACCOUNT"),
 			},
 		}
 		ctProvider, err := batch.NewProvider(ctx, ctConfig)
