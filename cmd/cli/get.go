@@ -41,7 +41,7 @@ var getCmd = &cobra.Command{
 		pht, _ := time.LoadLocation("Asia/Manila")
 		fmtTime := func(raw string) string {
 			if raw == "" {
-				return "-"
+				return "—"
 			}
 			if t, err := time.Parse(time.RFC3339, raw); err == nil {
 				return t.In(pht).Format("2006-01-02 15:04:05 PHT")
@@ -49,78 +49,74 @@ var getCmd = &cobra.Command{
 			return raw
 		}
 
+		dash := func(s string) string {
+			if s == "" {
+				return "—"
+			}
+			return s
+		}
+		dashNum := func(n json.Number) string {
+			s := n.String()
+			if s == "" || s == "0" {
+				return "—"
+			}
+			return s
+		}
+
+		retries := "—"
+		if rc := j.RetryCount.String(); rc != "" && rc != "0" {
+			retries = rc + " / " + j.MaxRetries.String()
+		}
+
+		bootDisk := "—"
+		if b := j.BootDiskSizeGb.String(); b != "" && b != "0" {
+			bootDisk = b + " GB"
+		}
+
+		spotVms := "no"
+		if j.UseSpotVms {
+			spotVms = "yes"
+		}
+
+		commands := "—"
+		if len(j.Commands) > 0 {
+			commands = strings.Join(j.Commands, " ")
+		}
+
 		fmt.Println("Job Details")
 		fmt.Println("───────────────────────────────────────")
-
-		// Identity
 		fmt.Printf("Job ID:          %s\n", j.JobID)
-		if j.Name != "" {
-			fmt.Printf("Name:            %s\n", j.Name)
-		}
+		fmt.Printf("Name:            %s\n", dash(j.Name))
 		fmt.Printf("Tenant:          %s\n", j.TenantID)
-
-		// Status
-		fmt.Println()
 		fmt.Printf("Status:          %s\n", j.Status)
-		if j.ErrorMessage != "" {
-			fmt.Printf("Error:           %s\n", j.ErrorMessage)
-		}
-		if j.RetryCount.String() != "0" && j.RetryCount.String() != "" {
-			fmt.Printf("Retries:         %s / %s\n", j.RetryCount, j.MaxRetries)
-		}
-
-		// Timestamps
-		fmt.Println()
+		fmt.Printf("Error:           %s\n", dash(j.ErrorMessage))
+		fmt.Printf("Retries:         %s\n", retries)
 		fmt.Printf("Created:         %s\n", fmtTime(j.CreatedAt))
 		fmt.Printf("Updated:         %s\n", fmtTime(j.UpdatedAt))
-		if j.ScheduledAt != "" {
-			fmt.Printf("Scheduled:       %s\n", fmtTime(j.ScheduledAt))
-		}
-		if j.StartedAt != "" {
-			fmt.Printf("Started:         %s\n", fmtTime(j.StartedAt))
-		}
-		if j.CompletedAt != "" {
-			fmt.Printf("Completed:       %s\n", fmtTime(j.CompletedAt))
-		}
-
-		// Container
-		fmt.Println()
-		fmt.Printf("Image:           %s\n", j.ImageURI)
-		if len(j.Commands) > 0 {
-			fmt.Printf("Commands:        %s\n", strings.Join(j.Commands, " "))
-		}
+		fmt.Printf("Scheduled:       %s\n", fmtTime(j.ScheduledAt))
+		fmt.Printf("Started:         %s\n", fmtTime(j.StartedAt))
+		fmt.Printf("Completed:       %s\n", fmtTime(j.CompletedAt))
+		fmt.Printf("Commands:        %s\n", commands)
+		fmt.Printf("Profile:         %s\n", dash(j.ResourceProfile))
+		fmt.Printf("Memory (MiB):    %s\n", dashNum(j.ResourceOverride.MemoryMib))
+		fmt.Printf("CPU (millis):    %s\n", dashNum(j.ResourceOverride.CpuMillis))
+		fmt.Printf("Timeout (sec):   %s\n", dashNum(j.ResourceOverride.MaxRunDurationSeconds))
+		fmt.Printf("Machine Type:    %s\n", dash(j.MachineType))
+		fmt.Printf("Boot Disk:       %s\n", bootDisk)
+		fmt.Printf("Spot VMs:        %s\n", spotVms)
+		fmt.Printf("Service Account: %s\n", dash(j.ServiceAccount))
+		fmt.Printf("GCP Job Path:    %s\n", dash(j.GcpBatchJobPath))
+		fmt.Printf("Image:           %s\n", dash(j.ImageURI))
 		if j.EnvVarsJson != "" && j.EnvVarsJson != "{}" && j.EnvVarsJson != "null" {
 			var envMap map[string]string
-			if json.Unmarshal([]byte(j.EnvVarsJson), &envMap) == nil {
+			if json.Unmarshal([]byte(j.EnvVarsJson), &envMap) == nil && len(envMap) > 0 {
 				fmt.Printf("Env Vars:\n")
 				for k, v := range envMap {
 					fmt.Printf("  %s=%s\n", k, v)
 				}
 			}
-		}
-
-		// Resources
-		fmt.Println()
-		if j.ResourceProfile != "" {
-			fmt.Printf("Profile:         %s\n", j.ResourceProfile)
-		}
-		if j.MachineType != "" {
-			fmt.Printf("Machine Type:    %s\n", j.MachineType)
-		}
-		if j.BootDiskSizeGb.String() != "0" && j.BootDiskSizeGb.String() != "" {
-			fmt.Printf("Boot Disk:       %s GB\n", j.BootDiskSizeGb)
-		}
-		if j.UseSpotVms {
-			fmt.Printf("Spot VMs:        yes\n")
-		}
-		if j.ServiceAccount != "" {
-			fmt.Printf("Service Account: %s\n", j.ServiceAccount)
-		}
-
-		// GCP resource path
-		if j.GcpBatchJobPath != "" {
-			fmt.Println()
-			fmt.Printf("GCP Job Path:    %s\n", j.GcpBatchJobPath)
+		} else {
+			fmt.Printf("Env Vars:        —\n")
 		}
 
 		return nil

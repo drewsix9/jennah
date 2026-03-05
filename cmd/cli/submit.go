@@ -19,16 +19,9 @@ var submitCmd = &cobra.Command{
 Flags override values in the JSON file.
 
 Routing tiers (decided automatically by the gateway):
-  SIMPLE  → Cloud Tasks    (no machine type, cpu ≤ 500m, memory ≤ 512 MiB, timeout ≤ 600s)
-  MEDIUM  → Cloud Run Jobs (no machine type, moderate resources)
-  COMPLEX → Cloud Batch    (machine type set, or heavy resources)`,
-	Example: `  jennah submit job.json                                                  (SIMPLE → Cloud Tasks)
-  jennah submit job.json --memory-mib 1024                                (MEDIUM → Cloud Run Jobs)
-  jennah submit job.json --cpu-millis 2000 --memory-mib 2048              (MEDIUM → Cloud Run Jobs)
-  jennah submit job.json --machine-type e2-standard-4                     (COMPLEX → Cloud Batch)
-  jennah submit job.json --machine-type n1-standard-4 --spot --wait       (COMPLEX, Spot VM, wait)
-  jennah submit job.json --profile large --timeout-sec 3600 --wait        (named profile, with wait)
-  jennah submit job.json --name my-job --cpu-millis 1000 --memory-mib 512 (named job, MEDIUM)`,
+  SIMPLE  → Cloud Run Jobs (no machine type, cpu ≤ 500m, memory ≤ 512 MiB, timeout ≤ 600s)
+  MEDIUM  → Cloud Run Jobs (no machine type, moderate resources, up to 4000m/8192 MiB/3600s)
+  COMPLEX → Cloud Batch    (machine type set, or exceeds MEDIUM thresholds)`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		wait, _ := cmd.Flags().GetBool("wait")
@@ -132,9 +125,17 @@ Routing tiers (decided automatically by the gateway):
 		fmt.Println()
 		fmt.Println("Submitting job...")
 
-		statusCode, rawResp, err := gw.postRaw("/jennah.v1.DeploymentService/SubmitJob", body)
-		if err != nil {
-			return fmt.Errorf("submit failed: %w", err)
+		var statusCode int
+		var rawResp []byte
+		for attempt := 1; ; attempt++ {
+			var submitErr error
+			statusCode, rawResp, submitErr = gw.postRaw("/jennah.v1.DeploymentService/SubmitJob", body)
+			if submitErr == nil {
+				break
+			}
+			fmt.Printf("  [%s]  ⚠ Error (attempt %d): %v\n", time.Now().Format("15:04:05"), attempt, submitErr)
+			fmt.Printf("  [%s]  Retrying...\n", time.Now().Format("15:04:05"))
+			time.Sleep(3 * time.Second)
 		}
 		if statusCode != 200 {
 			var errResp struct {
@@ -197,7 +198,11 @@ Routing tiers (decided automatically by the gateway):
 			"DELETED":   true,
 		}
 
-		ticker := time.NewTicker(3 * time.Second)
+		const maxConsecutiveErrors = 20 // ~1.5 min of retries before warning
+		consecutiveErrors := 0
+		wasRecovering := false
+
+		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
 
 		for {
@@ -208,9 +213,19 @@ Routing tiers (decided automatically by the gateway):
 			case <-ticker.C:
 				jobs, err := fetchJobs(gw)
 				if err != nil {
-					fmt.Printf("  [%s]  polling error: %v\n", time.Now().Format("15:04:05"), err)
+					consecutiveErrors++
+					fmt.Printf("  [%s]  ⚠ Error (attempt %d): %v\n", time.Now().Format("15:04:05"), consecutiveErrors, err)
+					fmt.Printf("  [%s]  Retrying...\n", time.Now().Format("15:04:05"))
+					wasRecovering = true
 					continue
 				}
+
+				if wasRecovering {
+					fmt.Printf("  [%s]  ✓ Worker recovered (was down for %d poll(s))\n", time.Now().Format("15:04:05"), consecutiveErrors)
+					wasRecovering = false
+				}
+				consecutiveErrors = 0
+
 				job := findJob(jobs, result.JobID)
 				if job == nil {
 					fmt.Println("============================================")
@@ -260,28 +275,13 @@ func friendlyService(s string) string {
 }
 
 func init() {
-	submitCmd.Flags().Bool("wait", false, "Block until the job completes (polls every 3s)")
-	submitCmd.Flags().String("machine-type", "", "GCP machine type — routes to Cloud Batch")
-	submitCmd.Flags().String("profile", "", "Resource preset: small | medium | large | xlarge")
-	submitCmd.Flags().Int64("memory-mib", 0, "Memory in MiB — overrides profile")
-	submitCmd.Flags().Int64("cpu-millis", 0, "CPU in millicores — overrides profile")
-	submitCmd.Flags().Int64("timeout-sec", 0, "Job timeout in seconds")
+	submitCmd.Flags().Bool("wait", false, "Block until the job completes (polls every 5s)")
+	submitCmd.Flags().String("machine-type", "", "GCP machine type — routes to Cloud Batch (e.g. e2-standard-4, n1-standard-16)")
+	submitCmd.Flags().String("profile", "", "Resource preset — overrides resource flags (e.g. small, medium, large, xlarge)")
+	submitCmd.Flags().Int64("memory-mib", 0, "Memory in MiB — overrides profile (e.g. 512, 2048)")
+	submitCmd.Flags().Int64("cpu-millis", 0, "CPU in millicores — overrides profile (e.g. 1000, 2000)")
+	submitCmd.Flags().Int64("timeout-sec", 0, "Job timeout in seconds (e.g. 600, 3600) — default no limit")
 	submitCmd.Flags().String("name", "", "Optional human-readable job name")
 	submitCmd.Flags().String("service-account", "", "Custom GCP service account email")
 	submitCmd.Flags().Bool("spot", false, "Use Spot VMs (cheaper, preemptible)")
-
-	// Show Examples after Flags in --help output
-	submitCmd.SetHelpTemplate(`{{with .Short}}{{. | trimRightSpace}}
-
-{{end}}{{with .Long}}{{. | trimRightSpace}}
-
-{{end}}Usage:
-  {{.UseLine}}
-
-Flags:
-{{.LocalFlags.FlagUsages | trimRightSpace}}
-{{with .Example}}
-Examples:
-{{.}}
-{{end}}`)
 }
