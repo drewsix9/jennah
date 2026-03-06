@@ -133,6 +133,53 @@ func TestComplex_DurationExceedsMedium(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// COMPLEX tier — DWP (distributed workload processing)
+// ---------------------------------------------------------------------------
+
+func TestComplex_DWPEnabled(t *testing.T) {
+	// ENABLE_DISTRIBUTED_MODE=true forces COMPLEX, even with zero resources.
+	req := &jennahv1.SubmitJobRequest{
+		ImageUri: "gcr.io/project/worker:latest",
+		EnvVars:  map[string]string{"ENABLE_DISTRIBUTED_MODE": "true"},
+	}
+	got := EvaluateJobComplexity(req)
+	assertTier(t, "DWP enabled (no resources)", got, ComplexityComplex, AssignedServiceCloudBatch)
+}
+
+func TestComplex_DWPWithSmallResources(t *testing.T) {
+	// Even tiny resources should be COMPLEX when DWP is on.
+	req := &jennahv1.SubmitJobRequest{
+		ImageUri: "gcr.io/project/worker:latest",
+		EnvVars:  map[string]string{"ENABLE_DISTRIBUTED_MODE": "true"},
+		ResourceOverride: &jennahv1.ResourceOverride{
+			CpuMillis: 100, MemoryMib: 128, MaxRunDurationSeconds: 60,
+		},
+	}
+	got := EvaluateJobComplexity(req)
+	assertTier(t, "DWP enabled (small resources)", got, ComplexityComplex, AssignedServiceCloudBatch)
+}
+
+func TestSimple_DWPDisabledExplicitly(t *testing.T) {
+	// ENABLE_DISTRIBUTED_MODE=false should NOT force COMPLEX.
+	req := &jennahv1.SubmitJobRequest{
+		ImageUri: "gcr.io/project/worker:latest",
+		EnvVars:  map[string]string{"ENABLE_DISTRIBUTED_MODE": "false"},
+	}
+	got := EvaluateJobComplexity(req)
+	assertTier(t, "DWP disabled explicitly", got, ComplexitySimple, AssignedServiceCloudTasks)
+}
+
+func TestSimple_NoEnvVars(t *testing.T) {
+	// Nil env vars map should be safely handled, staying SIMPLE.
+	req := &jennahv1.SubmitJobRequest{
+		ImageUri: "gcr.io/project/worker:latest",
+		EnvVars:  nil,
+	}
+	got := EvaluateJobComplexity(req)
+	assertTier(t, "nil env vars", got, ComplexitySimple, AssignedServiceCloudTasks)
+}
+
+// ---------------------------------------------------------------------------
 // String helpers
 // ---------------------------------------------------------------------------
 

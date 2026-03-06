@@ -103,6 +103,18 @@ func EvaluateJobComplexity(req *jennahv1.SubmitJobRequest) RoutingDecision {
 	}
 	machineType := req.GetMachineType()
 
+	// --- Rule 0: Distributed Workload Processing → always COMPLEX ---
+	// DWP jobs require GCP Batch for multi-instance task groups.
+	if envVars := req.GetEnvVars(); envVars != nil {
+		if envVars["ENABLE_DISTRIBUTED_MODE"] == "true" {
+			return RoutingDecision{
+				Complexity:      ComplexityComplex,
+				AssignedService: AssignedServiceCloudBatch,
+				Reason:          "distributed workload processing enabled (ENABLE_DISTRIBUTED_MODE=true)",
+			}
+		}
+	}
+
 	// --- Rule 1: explicit machine type → always COMPLEX ---
 	if machineType != "" {
 		return RoutingDecision{
