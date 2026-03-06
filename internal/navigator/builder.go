@@ -10,8 +10,12 @@ import (
 	"github.com/alphauslabs/jennah/internal/config"
 )
 
-// defaultBootDiskGB is used when the request does not specify a boot disk size.
-const defaultBootDiskGB int64 = 50
+const (
+	// defaultBootDiskGB is used when the request does not specify a boot disk size.
+	defaultBootDiskGB int64 = 50
+	// defaultDistributedTaskCount keeps distributed workloads parallel by default.
+	defaultDistributedTaskCount int64 = 4
+)
 
 // buildJobConfig translates a SubmitJobRequest into a fully-populated JobConfig.
 //
@@ -88,15 +92,28 @@ func buildJobConfig(
 	// When the frontend enables DWP, it injects JENNAH_TASK_COUNT and
 	// JENNAH_PARALLELISM env vars. The backend reads them to configure the
 	// GCP Batch task group for multi-instance parallel processing.
+	isDistributedMode := strings.EqualFold(strings.TrimSpace(envVars["ENABLE_DISTRIBUTED_MODE"]), "true")
+
+	taskCountSet := false
 	if tc, ok := envVars["JENNAH_TASK_COUNT"]; ok {
-		if n, err := strconv.ParseInt(tc, 10, 64); err == nil && n > 0 {
+		if n, err := strconv.ParseInt(strings.TrimSpace(tc), 10, 64); err == nil && n > 0 {
 			taskGroup.TaskCount = n
+			taskCountSet = true
 		}
 	}
+	if !taskCountSet && isDistributedMode {
+		taskGroup.TaskCount = defaultDistributedTaskCount
+	}
+
+	parallelismSet := false
 	if par, ok := envVars["JENNAH_PARALLELISM"]; ok {
-		if n, err := strconv.ParseInt(par, 10, 64); err == nil && n > 0 {
+		if n, err := strconv.ParseInt(strings.TrimSpace(par), 10, 64); err == nil && n > 0 {
 			taskGroup.Parallelism = n
+			parallelismSet = true
 		}
+	}
+	if !parallelismSet && isDistributedMode {
+		taskGroup.Parallelism = taskGroup.TaskCount
 	}
 	// Note: JENNAH_TASK_COUNT and JENNAH_PARALLELISM are intentionally kept in
 	// envVars so the stored job record still contains them. The frontend reads

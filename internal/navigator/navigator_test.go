@@ -247,6 +247,54 @@ func TestNavigate_TaskGroupDefaults(t *testing.T) {
 	}
 }
 
+func TestNavigate_DistributedModeDefaultsTaskGroup(t *testing.T) {
+	req := &jennahv1.SubmitJobRequest{
+		ImageUri: "alpine:latest",
+		EnvVars: map[string]string{
+			"ENABLE_DISTRIBUTED_MODE": "true",
+		},
+	}
+	plan, err := Navigate(req, "hhhhhhhh-0000-0000-0000-000000000008", nil)
+	if err != nil {
+		t.Fatalf("Navigate() error: %v", err)
+	}
+	tg := plan.Config.TaskGroup
+	if tg == nil {
+		t.Fatal("TaskGroup must not be nil")
+	}
+	if tg.TaskCount != defaultDistributedTaskCount {
+		t.Errorf("TaskCount: got %d, want %d", tg.TaskCount, defaultDistributedTaskCount)
+	}
+	if tg.Parallelism != defaultDistributedTaskCount {
+		t.Errorf("Parallelism: got %d, want %d", tg.Parallelism, defaultDistributedTaskCount)
+	}
+}
+
+func TestNavigate_DistributedModeRespectsTaskHints(t *testing.T) {
+	req := &jennahv1.SubmitJobRequest{
+		ImageUri: "alpine:latest",
+		EnvVars: map[string]string{
+			"ENABLE_DISTRIBUTED_MODE": "true",
+			"JENNAH_TASK_COUNT":       "6",
+			"JENNAH_PARALLELISM":      "2",
+		},
+	}
+	plan, err := Navigate(req, "iiiiiiii-0000-0000-0000-000000000009", nil)
+	if err != nil {
+		t.Fatalf("Navigate() error: %v", err)
+	}
+	tg := plan.Config.TaskGroup
+	if tg == nil {
+		t.Fatal("TaskGroup must not be nil")
+	}
+	if tg.TaskCount != 6 {
+		t.Errorf("TaskCount: got %d, want 6", tg.TaskCount)
+	}
+	if tg.Parallelism != 2 {
+		t.Errorf("Parallelism: got %d, want 2", tg.Parallelism)
+	}
+}
+
 // ─── EnvVars isolation ────────────────────────────────────────────────────────
 
 func TestNavigate_EnvVarsAreCopied(t *testing.T) {
