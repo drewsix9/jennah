@@ -4,8 +4,7 @@
 // appropriate ComplexityLevel together with the GCP service that should execute
 // the workload:
 //
-//   - SIMPLE  → Cloud Tasks   (no machine type, tiny CPU/memory, ≤ 10 min)
-//   - MEDIUM  → Cloud Run Jobs (no machine type, moderate resources, ≤ 1 hour)
+//   - SIMPLE  → Cloud Run Jobs (no machine type, or resources within Cloud Run limits)
 //   - COMPLEX → Cloud Batch   (specific machine type, heavy resources, or long duration)
 package router
 
@@ -18,10 +17,8 @@ type ComplexityLevel int
 
 const (
 	ComplexityUnspecified ComplexityLevel = iota
-	// ComplexitySimple: no machine-type constraint, ≤ 500 mCPU, ≤ 512 MiB, ≤ 600 s.
+	// ComplexitySimple: no machine-type constraint, resources within Cloud Run Jobs limits.
 	ComplexitySimple
-	// ComplexityMedium: no machine-type constraint but more resources or up to 3 600 s.
-	ComplexityMedium
 	// ComplexityComplex: explicit machine type, heavy CPU/memory, or very long duration.
 	ComplexityComplex
 )
@@ -31,8 +28,6 @@ func (c ComplexityLevel) String() string {
 	switch c {
 	case ComplexitySimple:
 		return "SIMPLE"
-	case ComplexityMedium:
-		return "MEDIUM"
 	case ComplexityComplex:
 		return "COMPLEX"
 	default:
@@ -77,18 +72,11 @@ type RoutingDecision struct {
 // These constants are exported so that callers (e.g. tests, dashboards) can
 // reference and override them without magic numbers.
 const (
-	// SimpleCPUMillisMax is the maximum CPU (in milli-cores) for a SIMPLE job.
-	SimpleCPUMillisMax int64 = 500
-	// SimpleMemoryMiBMax is the maximum memory (in MiB) for a SIMPLE job.
-	SimpleMemoryMiBMax int64 = 512
-	// SimpleDurationSecMax is the maximum duration (in seconds) for a SIMPLE job (10 min).
-	SimpleDurationSecMax int64 = 600
-
-	// MediumCPUMillisMax is the maximum CPU (in milli-cores) for a MEDIUM job.
+	// MediumCPUMillisMax is the maximum CPU (in milli-cores) for a SIMPLE job (above this → COMPLEX).
 	MediumCPUMillisMax int64 = 4000
-	// MediumMemoryMiBMax is the maximum memory (in MiB) for a MEDIUM job.
+	// MediumMemoryMiBMax is the maximum memory (in MiB) for a SIMPLE job (above this → COMPLEX).
 	MediumMemoryMiBMax int64 = 8192
-	// MediumDurationSecMax is the maximum duration (in seconds) for a MEDIUM job (1 hour).
+	// MediumDurationSecMax is the maximum duration (in seconds) for a SIMPLE job (above this → COMPLEX).
 	MediumDurationSecMax int64 = 3600
 )
 
@@ -98,9 +86,7 @@ const (
 //  1. If machine_type is set → COMPLEX / Cloud Batch.
 //  2. If cpu_millis > MediumCPUMillisMax, memory_mib > MediumMemoryMiBMax,
 //     or max_run_duration_seconds > MediumDurationSecMax → COMPLEX / Cloud Batch.
-//  3. If cpu_millis > SimpleCPUMillisMax, memory_mib > SimpleMemoryMiBMax,
-//     or max_run_duration_seconds > SimpleDurationSecMax → MEDIUM / Cloud Run Jobs.
-//  4. Otherwise → SIMPLE / Cloud Tasks.
+//  3. Otherwise → SIMPLE / Cloud Run Jobs.
 //
 // Zero-value resource fields are treated as "not specified" and do not push
 // the job into a higher tier on their own.
@@ -146,34 +132,11 @@ func EvaluateJobComplexity(req *jennahv1.SubmitJobRequest) RoutingDecision {
 		}
 	}
 
-	// --- Rule 3: moderate resources → MEDIUM ---
-	if exceedsThreshold(cpuMillis, SimpleCPUMillisMax) {
-		return RoutingDecision{
-			Complexity:      ComplexityMedium,
-			AssignedService: AssignedServiceCloudRunJob,
-			Reason:          "cpu_millis exceeds simple threshold",
-		}
-	}
-	if exceedsThreshold(memoryMiB, SimpleMemoryMiBMax) {
-		return RoutingDecision{
-			Complexity:      ComplexityMedium,
-			AssignedService: AssignedServiceCloudRunJob,
-			Reason:          "memory_mib exceeds simple threshold",
-		}
-	}
-	if exceedsThreshold(durationSec, SimpleDurationSecMax) {
-		return RoutingDecision{
-			Complexity:      ComplexityMedium,
-			AssignedService: AssignedServiceCloudRunJob,
-			Reason:          "max_run_duration_seconds exceeds simple threshold",
-		}
-	}
-
-	// --- Rule 4: everything else → SIMPLE (Cloud Run Jobs) ---
+	// --- Rule 3: everything else → SIMPLE (Cloud Run Jobs) ---
 	return RoutingDecision{
-			Complexity:      ComplexitySimple,
-			AssignedService: AssignedServiceCloudRunJob,
-		Reason:          "no machine type, resources within simple thresholds",
+		Complexity:      ComplexitySimple,
+		AssignedService: AssignedServiceCloudRunJob,
+		Reason:          "no machine type, resources within Cloud Run Jobs limits",
 	}
 }
 

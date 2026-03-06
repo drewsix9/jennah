@@ -38,8 +38,8 @@ func TestSimple_LowResources(t *testing.T) {
 }
 
 func TestSimple_AtThreshold(t *testing.T) {
-	// Exactly on the threshold values should still be SIMPLE (not exceeding them).
-	req := makeReq("", SimpleCPUMillisMax, SimpleMemoryMiBMax, SimpleDurationSecMax)
+	// Exactly on the COMPLEX threshold values should still be SIMPLE (not exceeding them).
+	req := makeReq("", MediumCPUMillisMax, MediumMemoryMiBMax, MediumDurationSecMax)
 	got := EvaluateJobComplexity(req)
 	assertTier(t, "at-threshold SIMPLE job", got, ComplexitySimple, AssignedServiceCloudRunJob)
 }
@@ -55,35 +55,35 @@ func TestSimple_NilResourceOverride(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// MEDIUM tier
+// SIMPLE tier — moderate resources (still Cloud Run Jobs, not MEDIUM anymore)
 // ---------------------------------------------------------------------------
 
 func TestMedium_CPUExceedsSimple(t *testing.T) {
-	// cpu just above 500m but below 4000m → MEDIUM.
+	// cpu just above 500m but below 4000m → SIMPLE (Cloud Run Jobs).
 	req := makeReq("", 1000, 256, 300)
 	got := EvaluateJobComplexity(req)
-	assertTier(t, "medium CPU job", got, ComplexityMedium, AssignedServiceCloudRunJob)
+	assertTier(t, "medium CPU job", got, ComplexitySimple, AssignedServiceCloudRunJob)
 }
 
 func TestMedium_MemoryExceedsSimple(t *testing.T) {
-	// memory just above 512MiB → MEDIUM.
+	// memory just above 512MiB → SIMPLE (Cloud Run Jobs).
 	req := makeReq("", 250, 1024, 300)
 	got := EvaluateJobComplexity(req)
-	assertTier(t, "medium memory job", got, ComplexityMedium, AssignedServiceCloudRunJob)
+	assertTier(t, "medium memory job", got, ComplexitySimple, AssignedServiceCloudRunJob)
 }
 
 func TestMedium_DurationExceedsSimple(t *testing.T) {
-	// 30-minute job — above 10-min simple limit, within 1-hour medium limit.
+	// 30-minute job — above 10-min simple limit, within 1-hour medium limit → SIMPLE (Cloud Run Jobs).
 	req := makeReq("", 250, 256, 1800)
 	got := EvaluateJobComplexity(req)
-	assertTier(t, "medium duration job", got, ComplexityMedium, AssignedServiceCloudRunJob)
+	assertTier(t, "medium duration job", got, ComplexitySimple, AssignedServiceCloudRunJob)
 }
 
 func TestMedium_AtMediumThreshold(t *testing.T) {
-	// Exactly at medium thresholds is still MEDIUM (not exceeding).
+	// At medium thresholds — still SIMPLE (Cloud Run Jobs).
 	req := makeReq("", MediumCPUMillisMax, MediumMemoryMiBMax, MediumDurationSecMax)
 	got := EvaluateJobComplexity(req)
-	assertTier(t, "at medium threshold", got, ComplexityMedium, AssignedServiceCloudRunJob)
+	assertTier(t, "at medium threshold", got, ComplexitySimple, AssignedServiceCloudRunJob)
 }
 
 // ---------------------------------------------------------------------------
@@ -140,7 +140,6 @@ func TestComplexityLevelString(t *testing.T) {
 	cases := map[ComplexityLevel]string{
 		ComplexityUnspecified: "UNSPECIFIED",
 		ComplexitySimple:      "SIMPLE",
-		ComplexityMedium:      "MEDIUM",
 		ComplexityComplex:     "COMPLEX",
 	}
 	for level, want := range cases {
