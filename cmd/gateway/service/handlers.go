@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"connectrpc.com/connect"
@@ -169,7 +170,8 @@ func (s *GatewayService) SubmitJob(
 	}
 	log.Printf("Selected worker: %s for tenant (routing key: %s)", workerIP, gatewayJobID)
 
-	routingDecision := router.EvaluateJobComplexity(req.Msg)
+	geminiKey := os.Getenv("GEMINI_API_KEY")
+	routingDecision := router.EvaluateJobComplexityWithGemini(ctx, geminiKey, req.Msg)
 	log.Printf("Routing decision: complexity=%s, service=%s, reason=%s",
 		routingDecision.Complexity, routingDecision.AssignedService, routingDecision.Reason)
 

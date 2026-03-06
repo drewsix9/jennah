@@ -30,12 +30,11 @@ import (
 type NavigationPlan struct {
 	// ── Routing decision ──────────────────────────────────────────────────────
 
-	// Complexity is the evaluated tier: SIMPLE, MEDIUM, or COMPLEX.
+	// Complexity is the evaluated tier: SIMPLE or COMPLEX.
 	Complexity router.ComplexityLevel
 
 	// AssignedService is the GCP service that will execute this job.
-	//   SIMPLE  → Cloud Tasks
-	//   MEDIUM  → Cloud Run Jobs
+	//   SIMPLE  → Cloud Run Jobs
 	//   COMPLEX → Cloud Batch
 	AssignedService router.AssignedService
 

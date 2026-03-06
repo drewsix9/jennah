@@ -65,7 +65,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 		dispatcher.WithCloudBatch(batchProvider),
 	}
 
-	// Cloud Run Jobs provider (SIMPLE/MEDIUM jobs) — configured via CLOUD_RUN_ENABLED=true.
+	// Cloud Run Jobs provider (SIMPLE jobs) — configured via CLOUD_RUN_ENABLED=true.
 	// ProjectID and Region default to BatchProvider values; can be overridden via env vars.
 	// Without it enabled, all SIMPLE jobs will fail.
 	if cfg.CloudRun.Enabled {

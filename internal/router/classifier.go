@@ -9,6 +9,9 @@
 package router
 
 import (
+	"context"
+	"fmt"
+
 	jennahv1 "github.com/alphauslabs/jennah/gen/proto"
 )
 
@@ -17,7 +20,7 @@ type ComplexityLevel int
 
 const (
 	ComplexityUnspecified ComplexityLevel = iota
-	// ComplexitySimple: no machine-type constraint, resources within Cloud Run Jobs limits.
+	// ComplexitySimple: no machine-type constraint; all resources within Cloud Run Jobs limits (≤4000 mCPU, ≤8192 MiB, ≤1 hr).
 	ComplexitySimple
 	// ComplexityComplex: explicit machine type, heavy CPU/memory, or very long duration.
 	ComplexityComplex
@@ -137,6 +140,54 @@ func EvaluateJobComplexity(req *jennahv1.SubmitJobRequest) RoutingDecision {
 		Complexity:      ComplexitySimple,
 		AssignedService: AssignedServiceCloudRunJob,
 		Reason:          "no machine type, resources within Cloud Run Jobs limits",
+	}
+}
+
+// EvaluateJobComplexityWithGemini classifies the job using the Gemini AI API
+// and maps the result to a RoutingDecision. It falls back to the deterministic
+// EvaluateJobComplexity if the API call fails.
+//
+// apiKey is the GEMINI_API_KEY environment variable value.
+func EvaluateJobComplexityWithGemini(ctx context.Context, apiKey string, req *jennahv1.SubmitJobRequest) RoutingDecision {
+	var cpuMillis, memoryMiB, durationSec int64
+	if ro := req.GetResourceOverride(); ro != nil {
+		cpuMillis = ro.GetCpuMillis()
+		memoryMiB = ro.GetMemoryMib()
+		durationSec = ro.GetMaxRunDurationSeconds()
+	}
+
+	classification, err := ClassifyWithGemini(ctx, apiKey, cpuMillis, memoryMiB, durationSec, req.GetMachineType())
+	if err != nil {
+		// Fall back to deterministic classifier on any Gemini error.
+		fallback := EvaluateJobComplexity(req)
+		fallback.Reason = fmt.Sprintf("Gemini unavailable (%v); fallback: %s", err, fallback.Reason)
+		return fallback
+	}
+
+	switch classification.Complexity {
+	case "SIMPLE":
+		return RoutingDecision{
+			Complexity:      ComplexitySimple,
+			AssignedService: AssignedServiceCloudRunJob,
+			Reason:          classification.Reason,
+		}
+	case "MEDIUM":
+		// MEDIUM is collapsed into SIMPLE — both route to Cloud Run Jobs.
+		return RoutingDecision{
+			Complexity:      ComplexitySimple,
+			AssignedService: AssignedServiceCloudRunJob,
+			Reason:          classification.Reason,
+		}
+	case "COMPLEX":
+		return RoutingDecision{
+			Complexity:      ComplexityComplex,
+			AssignedService: AssignedServiceCloudBatch,
+			Reason:          classification.Reason,
+		}
+	default:
+		fallback := EvaluateJobComplexity(req)
+		fallback.Reason = fmt.Sprintf("Gemini returned unknown tier %q; fallback: %s", classification.Complexity, fallback.Reason)
+		return fallback
 	}
 }
 

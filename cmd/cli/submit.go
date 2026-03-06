@@ -18,10 +18,10 @@ var submitCmd = &cobra.Command{
 	Long: `Reads base job parameters from a JSON file and submits the job.
 Flags override values in the JSON file.
 
-Routing tiers (decided automatically by the gateway):
-  SIMPLE  → Cloud Run Jobs (no machine type, cpu ≤ 500m, memory ≤ 512 MiB, timeout ≤ 600s)
-  MEDIUM  → Cloud Run Jobs (no machine type, moderate resources, up to 4000m/8192 MiB/3600s)
-  COMPLEX → Cloud Batch    (machine type set, or exceeds MEDIUM thresholds)`,
+Routing tiers (decided automatically by the gateway using Gemini AI):
+  SIMPLE  → Cloud Run Jobs (no machine type, cpu ≤ 4000m, memory ≤ 8192 MiB, timeout ≤ 3600s)
+  COMPLEX → Cloud Batch    (machine type set, cpu > 4000m, memory > 8192 MiB, or timeout > 3600s)`,
+
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		wait, _ := cmd.Flags().GetBool("wait")
@@ -264,12 +264,10 @@ Routing tiers (decided automatically by the gateway):
 // friendlyComplexity converts proto enum string to a readable label.
 func friendlyComplexity(s string) string {
 	switch {
-	case strings.Contains(s, "SIMPLE"):
-		return "SIMPLE"
-	case strings.Contains(s, "MEDIUM"):
-		return "MEDIUM"
 	case strings.Contains(s, "COMPLEX"):
-		return "COMPLEX"
+		return "COMPLEX → GCP Batch"
+	case strings.Contains(s, "SIMPLE"), strings.Contains(s, "MEDIUM"):
+		return "SIMPLE → Cloud Run Jobs"
 	default:
 		return s
 	}
