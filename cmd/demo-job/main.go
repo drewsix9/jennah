@@ -41,6 +41,7 @@ func main() {
 	log.Printf("  Input Size: %d bytes", cfg.InputDataSize)
 	log.Printf("  Output Path: %s", cfg.OutputBasePath)
 	log.Printf("  Distribution Mode: %s", cfg.DistributionMode)
+	log.Printf("  Sentiment Provider: %s", cfg.SentimentProvider)
 
 	// Create processor
 	processor := demo.NewProcessor(cfg)

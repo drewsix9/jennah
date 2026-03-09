@@ -20,26 +20,38 @@ type ProcessResult struct {
 
 // Processor handles file processing with error recovery
 type Processor struct {
-	config       *DistributedConfig
-	errorHandler *ErrorHandler
+	config            *DistributedConfig
+	errorHandler      *ErrorHandler
+	sentimentAnalyzer SentimentAnalyzer
 }
 
 // NewProcessor creates processor instance
 func NewProcessor(cfg *DistributedConfig) *Processor {
 	return &Processor{
-		config:       cfg,
-		errorHandler: NewErrorHandler(),
+		config:            cfg,
+		errorHandler:      NewErrorHandler(),
+		sentimentAnalyzer: newSentimentAnalyzer(cfg),
 	}
 }
 
 // Process reads byte range from file and counts lines/words
 func (p *Processor) Process(ctx context.Context) (*ProcessMetrics, error) {
 	metrics := &ProcessMetrics{
-		InstanceID:   p.config.InstanceID,
-		TaskIndex:    p.config.InstanceID,
-		TaskIndexMax: p.config.TotalInstances - 1,
-		JobID:        p.config.JobID,
-		Timestamp:    time.Now().UTC().Format(time.RFC3339),
+		InstanceID:            p.config.InstanceID,
+		TaskIndex:             p.config.InstanceID,
+		TaskIndexMax:          p.config.TotalInstances - 1,
+		JobID:                 p.config.JobID,
+		DistributionMode:      p.config.DistributionMode,
+		SentimentProvider:     p.sentimentAnalyzer.ProviderName(),
+		ProcessingTimeSeconds: 0,
+		ThroughputMBPerSecond: 0,
+		Timestamp:             time.Now().UTC().Format(time.RFC3339),
+	}
+
+	// Context-preserving record mode keeps semantic units intact (JSON objects,
+	// lines, etc.) and avoids splitting records mid-content.
+	if p.config.DistributionMode == DistributionModeRecord {
+		return p.processRecords(ctx, metrics)
 	}
 
 	// Resolve file size before chunking. Without this, InputDataSize=0 causes
@@ -96,6 +108,53 @@ func (p *Processor) Process(ctx context.Context) (*ProcessMetrics, error) {
 	return metrics, nil
 }
 
+func (p *Processor) processRecords(ctx context.Context, metrics *ProcessMetrics) (*ProcessMetrics, error) {
+	data, err := p.readAllInput(ctx)
+	if err != nil {
+		return metrics, err
+	}
+
+	records := extractSemanticRecords(data)
+	totalRecords := int64(len(records))
+	calc := NewChunkCalculator(totalRecords, p.config.TotalInstances)
+	recordRange, err := calc.Calculate(p.config.InstanceID)
+	if err != nil {
+		return metrics, fmt.Errorf("record range calculation failed: %w", err)
+	}
+
+	// Record mode doesn't use byte offsets.
+	metrics.StartByte = 0
+	metrics.EndByte = -1
+	metrics.StartRecord = recordRange.StartByte
+	metrics.EndRecord = recordRange.EndByte
+
+	if recordRange.IsEmpty() {
+		log.Printf("Instance %d: No record work assigned", p.config.InstanceID)
+		return metrics, nil
+	}
+
+	sentiment := newSentimentAccumulator()
+	for i := recordRange.StartByte; i <= recordRange.EndByte; i++ {
+		rec := records[int(i)]
+		metrics.RecordsProcessed++
+		metrics.LinesCount++
+		metrics.BytesProcessed += int64(len(rec))
+		metrics.CharactersCount += int64(len([]rune(rec)))
+		metrics.WordsCount += int64(len(strings.Fields(rec)))
+		s, err := p.sentimentAnalyzer.Analyze(ctx, rec)
+		if err != nil {
+			return metrics, fmt.Errorf("sentiment analysis failed: %w", err)
+		}
+		sentiment.addResult(s)
+	}
+	metrics.Sentiment = sentiment.result()
+
+	log.Printf("Instance %d processed %d records in RECORD mode",
+		p.config.InstanceID, metrics.RecordsProcessed)
+
+	return metrics, nil
+}
+
 // processReader reads from the given range and counts lines/words
 func (p *Processor) processReader(ctx context.Context, reader io.Reader, br *ByteRange, m *ProcessMetrics) error {
 	var limitedReader io.Reader
@@ -123,6 +182,7 @@ func (p *Processor) processReader(ctx context.Context, reader io.Reader, br *Byt
 	lineCount := int64(0)
 	wordCount := int64(0)
 	charCount := int64(0)
+	sentiment := newSentimentAccumulator()
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -134,6 +194,11 @@ func (p *Processor) processReader(ctx context.Context, reader io.Reader, br *Byt
 		// Count words (split by whitespace)
 		words := strings.Fields(line)
 		wordCount += int64(len(words))
+		s, err := p.sentimentAnalyzer.Analyze(ctx, line)
+		if err != nil {
+			return fmt.Errorf("sentiment analysis failed: %w", err)
+		}
+		sentiment.addResult(s)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -145,6 +210,8 @@ func (p *Processor) processReader(ctx context.Context, reader io.Reader, br *Byt
 	m.LinesCount = lineCount
 	m.WordsCount = wordCount
 	m.CharactersCount = charCount
+	m.RecordsProcessed = lineCount
+	m.Sentiment = sentiment.result()
 
 	log.Printf("Instance %d processed: %d lines, %d words, %d chars in %d bytes",
 		p.config.InstanceID, lineCount, wordCount, charCount, br.Size())

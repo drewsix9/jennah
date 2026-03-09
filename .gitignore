@@ -24,3 +24,4 @@ docs/r9ight/TASK_TRACKING.md
 .gocache
 job-dwp-force.json
 job-dwp.json
+tmp-output/
