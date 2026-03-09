@@ -155,12 +155,10 @@ func EvaluateJobComplexity(req *jennahv1.SubmitJobRequest) RoutingDecision {
 	}
 }
 
-// EvaluateJobComplexityWithGemini classifies the job using the Gemini AI API
-// and maps the result to a RoutingDecision. It falls back to the deterministic
-// EvaluateJobComplexity if the API call fails.
-//
-// apiKey is the GEMINI_API_KEY environment variable value.
-func EvaluateJobComplexityWithGemini(ctx context.Context, apiKey string, req *jennahv1.SubmitJobRequest) RoutingDecision {
+// EvaluateJobComplexityWithGemini classifies the job using Gemini via Vertex AI
+// (Application Default Credentials) and maps the result to a RoutingDecision.
+// It falls back to the deterministic EvaluateJobComplexity if the API call fails.
+func EvaluateJobComplexityWithGemini(ctx context.Context, req *jennahv1.SubmitJobRequest) RoutingDecision {
 	var cpuMillis, memoryMiB, durationSec int64
 	if ro := req.GetResourceOverride(); ro != nil {
 		cpuMillis = ro.GetCpuMillis()
@@ -168,7 +166,7 @@ func EvaluateJobComplexityWithGemini(ctx context.Context, apiKey string, req *je
 		durationSec = ro.GetMaxRunDurationSeconds()
 	}
 
-	classification, err := ClassifyWithGemini(ctx, apiKey, cpuMillis, memoryMiB, durationSec, req.GetMachineType())
+	classification, err := ClassifyWithGemini(ctx, "", cpuMillis, memoryMiB, durationSec, req.GetMachineType())
 	if err != nil {
 		// Fall back to deterministic classifier on any Gemini error.
 		fallback := EvaluateJobComplexity(req)

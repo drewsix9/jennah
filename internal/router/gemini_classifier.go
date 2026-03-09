@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"google.golang.org/genai"
 )
@@ -38,20 +39,31 @@ type GeminiClassification struct {
 	Reason     string `json:"reason"`
 }
 
-// ClassifyWithGemini sends the job parameters to Gemini and returns
+// ClassifyWithGemini sends the job parameters to Gemini via Vertex AI and returns
 // the AI-determined complexity classification.
-// apiKey should be passed from the GEMINI_API_KEY environment variable.
-func ClassifyWithGemini(ctx context.Context, apiKey string, cpuMillis, memoryMiB, durationSec int64, machineType string) (*GeminiClassification, error) {
-	if apiKey == "" {
-		return nil, fmt.Errorf("GEMINI_API_KEY is not set")
+// Uses Application Default Credentials — no API key required.
+// Project is read from the BATCH_PROJECT_ID or GCP_PROJECT environment variable.
+func ClassifyWithGemini(ctx context.Context, _ string, cpuMillis, memoryMiB, durationSec int64, machineType string) (*GeminiClassification, error) {
+	project := os.Getenv("BATCH_PROJECT_ID")
+	if project == "" {
+		project = os.Getenv("GCP_PROJECT")
+	}
+	if project == "" {
+		return nil, fmt.Errorf("BATCH_PROJECT_ID or GCP_PROJECT must be set for Vertex AI")
+	}
+
+	location := os.Getenv("BATCH_REGION")
+	if location == "" {
+		location = "us-central1"
 	}
 
 	client, err := genai.NewClient(ctx, &genai.ClientConfig{
-		APIKey:  apiKey,
-		Backend: genai.BackendGeminiAPI,
+		Project:  project,
+		Location: location,
+		Backend:  genai.BackendVertexAI,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Gemini client: %w", err)
+		return nil, fmt.Errorf("failed to create Vertex AI client: %w", err)
 	}
 
 	durationMin := durationSec / 60
@@ -65,7 +77,7 @@ func ClassifyWithGemini(ctx context.Context, apiKey string, cpuMillis, memoryMiB
 		cpuMillis, memoryMiB, durationMin, machineTypeStr,
 	)
 
-	result, err := client.Models.GenerateContent(ctx, "gemini-2.0-flash", genai.Text(prompt), &genai.GenerateContentConfig{
+	result, err := client.Models.GenerateContent(ctx, "gemini-2.0-flash-001", genai.Text(prompt), &genai.GenerateContentConfig{
 		SystemInstruction: genai.NewContentFromText(geminiSystemInstruction, genai.RoleUser),
 	})
 	if err != nil {
