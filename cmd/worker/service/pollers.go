@@ -11,6 +11,7 @@ import (
 
 	batch "github.com/alphauslabs/jennah/internal/cloudexec"
 	"github.com/alphauslabs/jennah/internal/database"
+	"github.com/alphauslabs/jennah/internal/notifier"
 	"github.com/alphauslabs/jennah/internal/router"
 )
 
@@ -194,6 +195,14 @@ func (poller *JobPoller) poll(ctx context.Context, server *WorkerService, poller
 				// Stop polling if job reached a terminal state.
 				if isTerminalStatus(dbStatus) {
 					log.Printf("Job %s reached terminal status %s, stopping poller", poller.jobID, dbStatus)
+
+					// Publish terminal event notification.
+					event := notifier.BuildEvent(transitionID, poller.tenantID, poller.jobID, dbStatus, oldStatus)
+					event.CloudResourcePath = poller.gcpResourcePath
+					event.ServiceTier = poller.serviceTier
+					event.AssignedService = string(poller.assignedService)
+					server.publishTerminalEvent(ctx, event, poller.tenantID)
+
 					poller.stop()
 					return
 				}

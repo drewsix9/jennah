@@ -16,6 +16,7 @@ import (
 	batch "github.com/alphauslabs/jennah/internal/cloudexec"
 	"github.com/alphauslabs/jennah/internal/database"
 	"github.com/alphauslabs/jennah/internal/navigator"
+	"github.com/alphauslabs/jennah/internal/notifier"
 	"github.com/alphauslabs/jennah/internal/router"
 )
 
@@ -181,6 +182,10 @@ func (s *WorkerService) SubmitJob(
 		if failErr != nil {
 			log.Printf("Error updating job status to FAILED: %v", failErr)
 		}
+		// Publish terminal event for immediate failure.
+		event := notifier.BuildEvent(uuid.New().String(), tenantID, internalJobID, database.JobStatusFailed, database.JobStatusPending)
+		event.ErrorMessage = err.Error()
+		s.publishTerminalEvent(ctx, event, tenantID)
 		return nil, connect.NewError(
 			connect.CodeInternal,
 			fmt.Errorf("failed to build execution plan: %w", err),
@@ -206,6 +211,10 @@ func (s *WorkerService) SubmitJob(
 		if failErr != nil {
 			log.Printf("Error updating job status to FAILED: %v", failErr)
 		}
+		// Publish terminal event for submission failure.
+		event := notifier.BuildEvent(uuid.New().String(), tenantID, internalJobID, database.JobStatusFailed, database.JobStatusPending)
+		event.ErrorMessage = err.Error()
+		s.publishTerminalEvent(ctx, event, tenantID)
 		return nil, connect.NewError(
 			connect.CodeInternal,
 			fmt.Errorf("failed to submit batch job: %w", err),
@@ -354,6 +363,19 @@ func (s *WorkerService) CancelJob(
 	if err != nil {
 		log.Printf("Error recording state transition: %v", err)
 	}
+
+	// Publish terminal event for cancellation.
+	event := notifier.BuildEvent(transitionID, tenantID, jobID, database.JobStatusCancelled, job.Status)
+	if job.GcpBatchJobPath != nil {
+		event.CloudResourcePath = *job.GcpBatchJobPath
+	}
+	if job.ServiceTier != nil {
+		event.ServiceTier = *job.ServiceTier
+	}
+	if job.AssignedService != nil {
+		event.AssignedService = *job.AssignedService
+	}
+	s.publishTerminalEvent(ctx, event, tenantID)
 
 	// Stop the poller for this job.
 	s.stopPollerForJob(tenantID, jobID)

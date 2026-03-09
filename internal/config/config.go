@@ -21,6 +21,23 @@ type Config struct {
 
 	// Database configuration.
 	Database DatabaseConfig
+
+	// PubSub configuration for job terminal event notifications.
+	PubSub PubSubConfig
+}
+
+// PubSubConfig contains Pub/Sub notification configuration.
+type PubSubConfig struct {
+	// Enabled determines whether Pub/Sub notifications are published.
+	// Defaults to false; set PUBSUB_ENABLED=true to enable.
+	Enabled bool
+
+	// ProjectID is the GCP project that owns the Pub/Sub topic.
+	// If not set, defaults to BatchProvider.ProjectID.
+	ProjectID string
+
+	// TopicID is the Pub/Sub topic to publish terminal events to.
+	TopicID string
 }
 
 // CloudRunConfig contains Cloud Run Jobs provider configuration.
@@ -101,6 +118,17 @@ func LoadFromEnv() (*Config, error) {
 		config.CloudRun.ServiceAccount = crServiceAccount
 	}
 
+	// Load Pub/Sub notification configuration.
+	config.PubSub = PubSubConfig{
+		Enabled: os.Getenv("PUBSUB_ENABLED") == "true",
+		TopicID: os.Getenv("PUBSUB_TOPIC_ID"),
+	}
+	if pubsubProjectID := os.Getenv("PUBSUB_PROJECT_ID"); pubsubProjectID != "" {
+		config.PubSub.ProjectID = pubsubProjectID
+	} else {
+		config.PubSub.ProjectID = config.BatchProvider.ProjectID
+	}
+
 	// Load provider-specific batch options
 	if awsAccountID := os.Getenv("AWS_ACCOUNT_ID"); awsAccountID != "" {
 		config.BatchProvider.ProviderOptions["account_id"] = awsAccountID
@@ -167,6 +195,16 @@ func (c *Config) Validate() error {
 		}
 		if c.CloudRun.Region == "" {
 			return fmt.Errorf("CLOUD_RUN_REGION (or BATCH_REGION fallback) is required when CLOUD_RUN_ENABLED=true")
+		}
+	}
+
+	// Validate Pub/Sub configuration (if enabled)
+	if c.PubSub.Enabled {
+		if c.PubSub.ProjectID == "" {
+			return fmt.Errorf("PUBSUB_PROJECT_ID (or BATCH_PROJECT_ID fallback) is required when PUBSUB_ENABLED=true")
+		}
+		if c.PubSub.TopicID == "" {
+			return fmt.Errorf("PUBSUB_TOPIC_ID is required when PUBSUB_ENABLED=true")
 		}
 	}
 
@@ -243,6 +281,11 @@ Cloud Run Jobs configuration (for SIMPLE/MEDIUM workloads):
   CLOUD_RUN_PROJECT_ID=labs-169405  # Optional; defaults to BATCH_PROJECT_ID
   CLOUD_RUN_REGION=asia-northeast1   # Optional; defaults to BATCH_REGION
   CLOUD_RUN_SERVICE_ACCOUNT=optional-sa@project.iam.gserviceaccount.com  # Optional
+
+Pub/Sub notification configuration:
+  PUBSUB_ENABLED=true
+  PUBSUB_PROJECT_ID=labs-169405     # Optional; defaults to BATCH_PROJECT_ID
+  PUBSUB_TOPIC_ID=jennah-job-events # Required when PUBSUB_ENABLED=true
 
 Example for AWS:
   BATCH_PROVIDER=aws
