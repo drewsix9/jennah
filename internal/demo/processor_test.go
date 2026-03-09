@@ -42,3 +42,50 @@ func TestProcess_ResolvesLocalFileSizeWhenUnset(t *testing.T) {
 		t.Fatalf("expected instance to process bytes, got 0")
 	}
 }
+
+func TestProcess_RecordMode_DoesNotSplitSingleJSONRecord(t *testing.T) {
+	tmpDir := t.TempDir()
+	inputFile := filepath.Join(tmpDir, "input.json")
+	content := `{"amountMax":139.99,"merchant":"Amazon.com","shipping":"FREE Shipping."}`
+
+	if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
+		t.Fatalf("write input file: %v", err)
+	}
+
+	// Single record with 4 instances:
+	// instance 0 should get the full record, others get empty work.
+	cfg0 := &DistributedConfig{
+		InstanceID:        0,
+		TotalInstances:    4,
+		InputDataPath:     inputFile,
+		OutputBasePath:    tmpDir,
+		DistributionMode:  DistributionModeRecord,
+		EnableDistributed: true,
+	}
+	m0, err := NewProcessor(cfg0).Process(context.Background())
+	if err != nil {
+		t.Fatalf("instance 0 Process() error: %v", err)
+	}
+	if m0.RecordsProcessed != 1 {
+		t.Fatalf("instance 0 expected 1 record, got %d", m0.RecordsProcessed)
+	}
+	if m0.BytesProcessed == 0 {
+		t.Fatalf("instance 0 expected bytes > 0, got 0")
+	}
+
+	cfg1 := &DistributedConfig{
+		InstanceID:        1,
+		TotalInstances:    4,
+		InputDataPath:     inputFile,
+		OutputBasePath:    tmpDir,
+		DistributionMode:  DistributionModeRecord,
+		EnableDistributed: true,
+	}
+	m1, err := NewProcessor(cfg1).Process(context.Background())
+	if err != nil {
+		t.Fatalf("instance 1 Process() error: %v", err)
+	}
+	if m1.RecordsProcessed != 0 {
+		t.Fatalf("instance 1 expected 0 records, got %d", m1.RecordsProcessed)
+	}
+}
