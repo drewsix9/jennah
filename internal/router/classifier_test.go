@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"testing"
 
 	jennahv1 "github.com/alphauslabs/jennah/gen/proto"
@@ -166,7 +167,7 @@ func TestSimple_DWPDisabledExplicitly(t *testing.T) {
 		EnvVars:  map[string]string{"ENABLE_DISTRIBUTED_MODE": "false"},
 	}
 	got := EvaluateJobComplexity(req)
-	assertTier(t, "DWP disabled explicitly", got, ComplexitySimple, AssignedServiceCloudTasks)
+	assertTier(t, "DWP disabled explicitly", got, ComplexitySimple, AssignedServiceCloudRunJob)
 }
 
 func TestSimple_NoEnvVars(t *testing.T) {
@@ -176,7 +177,52 @@ func TestSimple_NoEnvVars(t *testing.T) {
 		EnvVars:  nil,
 	}
 	got := EvaluateJobComplexity(req)
-	assertTier(t, "nil env vars", got, ComplexitySimple, AssignedServiceCloudTasks)
+	assertTier(t, "nil env vars", got, ComplexitySimple, AssignedServiceCloudRunJob)
+}
+
+func TestComplex_DWPEnabled_CaseInsensitiveValueAndKey(t *testing.T) {
+	req := &jennahv1.SubmitJobRequest{
+		ImageUri: "gcr.io/project/worker:latest",
+		EnvVars:  map[string]string{"enable_distributed_mode": " TRUE "},
+	}
+	got := EvaluateJobComplexity(req)
+	assertTier(t, "DWP enabled with mixed-case key/value", got, ComplexityComplex, AssignedServiceCloudBatch)
+}
+
+func TestComplex_DWPEnabled_TaskCountHint(t *testing.T) {
+	req := &jennahv1.SubmitJobRequest{
+		ImageUri: "gcr.io/project/worker:latest",
+		EnvVars:  map[string]string{"JENNAH_TASK_COUNT": "4"},
+	}
+	got := EvaluateJobComplexity(req)
+	assertTier(t, "DWP enabled via task_count hint", got, ComplexityComplex, AssignedServiceCloudBatch)
+}
+
+func TestComplex_DWPEnabled_ParallelismHint(t *testing.T) {
+	req := &jennahv1.SubmitJobRequest{
+		ImageUri: "gcr.io/project/worker:latest",
+		EnvVars:  map[string]string{"JENNAH_PARALLELISM": "2"},
+	}
+	got := EvaluateJobComplexity(req)
+	assertTier(t, "DWP enabled via parallelism hint", got, ComplexityComplex, AssignedServiceCloudBatch)
+}
+
+func TestSimple_DWPTaskCountHint_OneTaskDoesNotForceComplex(t *testing.T) {
+	req := &jennahv1.SubmitJobRequest{
+		ImageUri: "gcr.io/project/worker:latest",
+		EnvVars:  map[string]string{"JENNAH_TASK_COUNT": "1"},
+	}
+	got := EvaluateJobComplexity(req)
+	assertTier(t, "task_count=1 should remain SIMPLE", got, ComplexitySimple, AssignedServiceCloudRunJob)
+}
+
+func TestComplex_DWPEnabled_WithGeminiPathShortCircuits(t *testing.T) {
+	req := &jennahv1.SubmitJobRequest{
+		ImageUri: "gcr.io/project/worker:latest",
+		EnvVars:  map[string]string{"JENNAH_TASK_COUNT": "3"},
+	}
+	got := EvaluateJobComplexityWithGemini(context.Background(), req)
+	assertTier(t, "gemini path must still force DWP to Cloud Batch", got, ComplexityComplex, AssignedServiceCloudBatch)
 }
 
 // ---------------------------------------------------------------------------

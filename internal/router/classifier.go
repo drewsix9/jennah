@@ -11,6 +11,8 @@ package router
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 
 	jennahv1 "github.com/alphauslabs/jennah/gen/proto"
 )
@@ -43,7 +45,7 @@ type AssignedService int
 
 const (
 	AssignedServiceUnspecified AssignedService = iota
-	_ // reserved (formerly Cloud Tasks)
+	_                                          // reserved (formerly Cloud Tasks)
 	// AssignedServiceCloudRunJob routes the job to GCP Cloud Run Jobs.
 	AssignedServiceCloudRunJob
 	// AssignedServiceCloudBatch routes the job to GCP Cloud Batch.
@@ -86,10 +88,11 @@ const (
 // EvaluateJobComplexity inspects req and returns the routing decision.
 //
 // Decision logic (strictest check first):
-//  1. If machine_type is set → COMPLEX / Cloud Batch.
-//  2. If cpu_millis > MediumCPUMillisMax, memory_mib > MediumMemoryMiBMax,
+//  1. If distributed workload processing is enabled → COMPLEX / Cloud Batch.
+//  2. If machine_type is set → COMPLEX / Cloud Batch.
+//  3. If cpu_millis > MediumCPUMillisMax, memory_mib > MediumMemoryMiBMax,
 //     or max_run_duration_seconds > MediumDurationSecMax → COMPLEX / Cloud Batch.
-//  3. Otherwise → SIMPLE / Cloud Run Jobs.
+//  4. Otherwise → SIMPLE / Cloud Run Jobs.
 //
 // Zero-value resource fields are treated as "not specified" and do not push
 // the job into a higher tier on their own.
@@ -104,14 +107,12 @@ func EvaluateJobComplexity(req *jennahv1.SubmitJobRequest) RoutingDecision {
 	machineType := req.GetMachineType()
 
 	// --- Rule 0: Distributed Workload Processing → always COMPLEX ---
-	// DWP jobs require GCP Batch for multi-instance task groups.
-	if envVars := req.GetEnvVars(); envVars != nil {
-		if envVars["ENABLE_DISTRIBUTED_MODE"] == "true" {
-			return RoutingDecision{
-				Complexity:      ComplexityComplex,
-				AssignedService: AssignedServiceCloudBatch,
-				Reason:          "distributed workload processing enabled (ENABLE_DISTRIBUTED_MODE=true)",
-			}
+	// DWP jobs require Cloud Batch for multi-instance task groups.
+	if dwpEnabled, reason := isDistributedModeEnabled(req.GetEnvVars()); dwpEnabled {
+		return RoutingDecision{
+			Complexity:      ComplexityComplex,
+			AssignedService: AssignedServiceCloudBatch,
+			Reason:          reason,
 		}
 	}
 
@@ -159,6 +160,15 @@ func EvaluateJobComplexity(req *jennahv1.SubmitJobRequest) RoutingDecision {
 // (Application Default Credentials) and maps the result to a RoutingDecision.
 // It falls back to the deterministic EvaluateJobComplexity if the API call fails.
 func EvaluateJobComplexityWithGemini(ctx context.Context, req *jennahv1.SubmitJobRequest) RoutingDecision {
+	// Honor hard routing constraints before calling Gemini.
+	if dwpEnabled, reason := isDistributedModeEnabled(req.GetEnvVars()); dwpEnabled {
+		return RoutingDecision{
+			Complexity:      ComplexityComplex,
+			AssignedService: AssignedServiceCloudBatch,
+			Reason:          reason,
+		}
+	}
+
 	var cpuMillis, memoryMiB, durationSec int64
 	if ro := req.GetResourceOverride(); ro != nil {
 		cpuMillis = ro.GetCpuMillis()
@@ -205,4 +215,62 @@ func EvaluateJobComplexityWithGemini(ctx context.Context, req *jennahv1.SubmitJo
 // than max. A zero value means "not specified" and is not penalised.
 func exceedsThreshold(value, max int64) bool {
 	return value > 0 && value > max
+}
+
+func isDistributedModeEnabled(envVars map[string]string) (bool, string) {
+	if len(envVars) == 0 {
+		return false, ""
+	}
+
+	// Flag-based signal: ENABLE_DISTRIBUTED_MODE=true (accept truthy variants).
+	if v, ok := lookupEnvVar(envVars, "ENABLE_DISTRIBUTED_MODE"); ok && isTruthy(v) {
+		return true, "distributed workload processing enabled (ENABLE_DISTRIBUTED_MODE=true)"
+	}
+
+	// Task-hint signals injected by CLI/frontend for distributed execution.
+	if v, ok := lookupEnvVar(envVars, "JENNAH_TASK_COUNT"); ok {
+		if n, ok := parsePositiveInt(v); ok && n > 1 {
+			return true, fmt.Sprintf("distributed workload processing enabled (JENNAH_TASK_COUNT=%d)", n)
+		}
+	}
+	if v, ok := lookupEnvVar(envVars, "JENNAH_PARALLELISM"); ok {
+		if n, ok := parsePositiveInt(v); ok && n > 1 {
+			return true, fmt.Sprintf("distributed workload processing enabled (JENNAH_PARALLELISM=%d)", n)
+		}
+	}
+
+	return false, ""
+}
+
+func lookupEnvVar(envVars map[string]string, key string) (string, bool) {
+	if v, ok := envVars[key]; ok {
+		return v, true
+	}
+	for k, v := range envVars {
+		if strings.EqualFold(k, key) {
+			return v, true
+		}
+	}
+	return "", false
+}
+
+func isTruthy(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+func parsePositiveInt(v string) (int64, bool) {
+	trimmed := strings.TrimSpace(v)
+	if trimmed == "" {
+		return 0, false
+	}
+	n, err := strconv.ParseInt(trimmed, 10, 64)
+	if err != nil || n <= 0 {
+		return 0, false
+	}
+	return n, true
 }
