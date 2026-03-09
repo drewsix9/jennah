@@ -42,6 +42,12 @@ func (p *Processor) Process(ctx context.Context) (*ProcessMetrics, error) {
 		Timestamp:    time.Now().UTC().Format(time.RFC3339),
 	}
 
+	// Resolve file size before chunking. Without this, InputDataSize=0 causes
+	// empty ranges (end_byte=-1) and all instances return no-op metrics.
+	if err := p.ensureInputDataSize(ctx); err != nil {
+		return metrics, err
+	}
+
 	// Calculate byte range
 	calc := NewChunkCalculator(p.config.InputDataSize, p.config.TotalInstances)
 	byteRange, err := calc.Calculate(p.config.InstanceID)
@@ -72,6 +78,13 @@ func (p *Processor) Process(ctx context.Context) (*ProcessMetrics, error) {
 
 	if err != nil {
 		return metrics, err
+	}
+	if closer, ok := reader.(io.Closer); ok {
+		defer func() {
+			if err := closer.Close(); err != nil {
+				log.Printf("warning: failed to close input reader: %v", err)
+			}
+		}()
 	}
 
 	// Process with error handling
@@ -139,6 +152,37 @@ func (p *Processor) processReader(ctx context.Context, reader io.Reader, br *Byt
 	return nil
 }
 
+func (p *Processor) ensureInputDataSize(ctx context.Context) error {
+	if p.config.InputDataSize > 0 {
+		return nil
+	}
+
+	if IsGCSPath(p.config.InputDataPath) {
+		size, err := GetGCSObjectSize(ctx, p.config.InputDataPath)
+		if err != nil {
+			p.errorHandler.HandleError(ErrFileNotFound, err)
+			return err
+		}
+		p.config.InputDataSize = size
+		log.Printf("Using GCS object size: %d bytes", p.config.InputDataSize)
+		return nil
+	}
+
+	info, err := os.Stat(p.config.InputDataPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			p.errorHandler.HandleError(ErrFileNotFound, err)
+			return fmt.Errorf("input file not found: %s", p.config.InputDataPath)
+		}
+		p.errorHandler.HandleError(ErrPermissionDenied, err)
+		return fmt.Errorf("cannot access input file: %w", err)
+	}
+
+	p.config.InputDataSize = info.Size()
+	log.Printf("Using actual file size: %d bytes", p.config.InputDataSize)
+	return nil
+}
+
 // openFile opens the input file (local or GCS)
 func (p *Processor) openFile(ctx context.Context) (io.Reader, error) {
 	// Check if GCS path
@@ -174,6 +218,17 @@ func (p *Processor) openFile(ctx context.Context) (io.Reader, error) {
 
 // openGCSFile opens a file from Google Cloud Storage with byte-range support
 func (p *Processor) openGCSFile(ctx context.Context) (io.Reader, error) {
+	// If size is not set, fetch it from GCS first.
+	if p.config.InputDataSize == 0 {
+		size, err := GetGCSObjectSize(ctx, p.config.InputDataPath)
+		if err != nil {
+			p.errorHandler.HandleError(ErrFileNotFound, err)
+			return nil, err
+		}
+		p.config.InputDataSize = size
+		log.Printf("GCS file size: %d bytes", p.config.InputDataSize)
+	}
+
 	// Calculate byte range
 	calc := NewChunkCalculator(p.config.InputDataSize, p.config.TotalInstances)
 	byteRange, err := calc.Calculate(p.config.InstanceID)
@@ -183,23 +238,6 @@ func (p *Processor) openGCSFile(ctx context.Context) (io.Reader, error) {
 	}
 
 	log.Printf("Opening GCS file: %s (bytes %d-%d)", p.config.InputDataPath, byteRange.StartByte, byteRange.EndByte)
-
-	// If InputDataSize not set, fetch it from GCS
-	if p.config.InputDataSize == 0 {
-		size, err := GetGCSObjectSize(ctx, p.config.InputDataPath)
-		if err != nil {
-			p.errorHandler.HandleError(ErrFileNotFound, err)
-			return nil, err
-		}
-		p.config.InputDataSize = size
-		log.Printf("GCS file size: %d bytes", p.config.InputDataSize)
-
-		// Recalculate range with actual size
-		byteRange, err = calc.Calculate(p.config.InstanceID)
-		if err != nil {
-			return nil, fmt.Errorf("recalculate byte range: %w", err)
-		}
-	}
 
 	// Open GCS range reader
 	reader, err := NewGCSRangeReader(ctx, p.config.InputDataPath, byteRange.StartByte, byteRange.EndByte)
