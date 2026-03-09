@@ -18,8 +18,9 @@ Phase 1 implementation of the distributed workload processing system. This appli
 ### Phase 1: Single & Multi-Instance Local Processing
 
 - ✅ Processes local text files
-- ✅ Divides work across instances using byte-range distribution
+- ✅ Divides work across instances using byte-range or record-aware distribution
 - ✅ Counts lines, words, and characters per instance
+- ✅ Optional lexical sentiment analysis per processed record
 - ✅ Generates per-instance metrics in JSON format
 - ✅ Error handling with retry logic
 - ✅ Comprehensive unit tests for chunk calculator
@@ -117,8 +118,12 @@ export OUTPUT_BASE_PATH="./output"
 | `BATCH_TASK_COUNT`        | 1            | Total instances            |
 | `OUTPUT_BASE_PATH`        | `./output`   | Output directory           |
 | `JOB_ID`                  | (empty)      | Job identifier for logging |
-| `DISTRIBUTION_MODE`       | `BYTE_RANGE` | Distribution strategy      |
+| `DISTRIBUTION_MODE`       | `BYTE_RANGE` (or `RECORD` when DWP enabled and unset) | Distribution strategy |
 | `ENABLE_DISTRIBUTED_MODE` | false        | Feature flag               |
+| `SENTIMENT_PROVIDER`      | `lexicon`    | Sentiment backend: `lexicon` or `gemini` |
+| `SENTIMENT_MODEL`         | `gemini-2.0-flash-001` | Gemini model ID (when provider is `gemini`) |
+| `SENTIMENT_LANGUAGE`      | `auto`       | Language hint for sentiment model |
+| `SENTIMENT_TEXT_FIELDS`   | (empty)      | Comma-separated JSON fields to analyze (e.g. `title,review.text`) |
 
 ### CLI Flags
 
@@ -141,10 +146,19 @@ Each instance produces a JSON file: `output/instance-{id}.json`
   "job_id": "job-123",
   "start_byte": 0,
   "end_byte": 268435455,
+  "distribution_mode": "BYTE_RANGE",
   "bytes_processed": 268435456,
+  "records_processed": 2500000,
   "lines_count": 2500000,
   "words_count": 25000000,
   "characters_count": 268435456,
+  "sentiment": {
+    "positive_records": 1000,
+    "negative_records": 250,
+    "neutral_records": 2498750,
+    "average_score": 0.03,
+    "label": "neutral"
+  },
   "processing_time_seconds": 12.5,
   "throughput_mb_per_second": 21.5,
   "timestamp": "2026-03-02T12:34:56Z"
@@ -211,6 +225,21 @@ bash demo-job-test.sh
 
 - File may be smaller than number of instances
 - Empty ranges generate valid metrics with 0 counts
+
+### Model-Based Sentiment (Optional)
+
+To enable Gemini-backed sentiment scoring and summaries:
+
+```bash
+export SENTIMENT_PROVIDER=gemini
+export SENTIMENT_MODEL=gemini-2.0-flash-001
+export SENTIMENT_LANGUAGE=auto
+export SENTIMENT_TEXT_FIELDS=title,description,review.text
+```
+
+Requires:
+- `BATCH_PROJECT_ID` (or `GCP_PROJECT`)
+- Application Default Credentials with Vertex AI access
 
 ## Performance Notes
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // DistributedConfig holds configuration for the demo job
@@ -16,7 +17,18 @@ type DistributedConfig struct {
 	JobID             string
 	DistributionMode  string
 	EnableDistributed bool
+	SentimentProvider string
+	SentimentModel    string
+	SentimentLanguage string
+	SentimentFields   []string
 }
+
+const (
+	DistributionModeByteRange = "BYTE_RANGE"
+	DistributionModeRecord    = "RECORD"
+	SentimentProviderLexicon  = "lexicon"
+	SentimentProviderGemini   = "gemini"
+)
 
 // LoadConfig reads environment variables and returns configuration
 func LoadConfig() (*DistributedConfig, error) {
@@ -63,12 +75,35 @@ func LoadConfig() (*DistributedConfig, error) {
 
 	// Load optional fields
 	cfg.JobID = os.Getenv("JOB_ID")
-	cfg.DistributionMode = os.Getenv("DISTRIBUTION_MODE")
+	cfg.EnableDistributed = strings.EqualFold(os.Getenv("ENABLE_DISTRIBUTED_MODE"), "true")
+	cfg.DistributionMode = strings.ToUpper(strings.TrimSpace(os.Getenv("DISTRIBUTION_MODE")))
 	if cfg.DistributionMode == "" {
-		cfg.DistributionMode = "BYTE_RANGE"
+		// Default to context-preserving record mode for DWP jobs.
+		if cfg.EnableDistributed || cfg.TotalInstances > 1 {
+			cfg.DistributionMode = DistributionModeRecord
+		} else {
+			cfg.DistributionMode = DistributionModeByteRange
+		}
 	}
 
-	cfg.EnableDistributed = os.Getenv("ENABLE_DISTRIBUTED_MODE") == "true"
+	cfg.SentimentProvider = strings.ToLower(strings.TrimSpace(os.Getenv("SENTIMENT_PROVIDER")))
+	if cfg.SentimentProvider == "" {
+		cfg.SentimentProvider = SentimentProviderLexicon
+	}
+	cfg.SentimentModel = strings.TrimSpace(os.Getenv("SENTIMENT_MODEL"))
+	if cfg.SentimentModel == "" {
+		cfg.SentimentModel = "gemini-2.0-flash-001"
+	}
+	cfg.SentimentLanguage = strings.TrimSpace(os.Getenv("SENTIMENT_LANGUAGE"))
+	if cfg.SentimentLanguage == "" {
+		cfg.SentimentLanguage = "auto"
+	}
+	for _, raw := range strings.Split(os.Getenv("SENTIMENT_TEXT_FIELDS"), ",") {
+		f := strings.ToLower(strings.TrimSpace(raw))
+		if f != "" {
+			cfg.SentimentFields = append(cfg.SentimentFields, f)
+		}
+	}
 
 	// Default TotalInstances to 1 (single instance mode)
 	if cfg.TotalInstances == 0 {
@@ -91,6 +126,16 @@ func (c *DistributedConfig) Validate() error {
 	}
 	if c.InputDataSize < 0 {
 		return fmt.Errorf("InputDataSize cannot be negative, got %d", c.InputDataSize)
+	}
+	switch c.DistributionMode {
+	case DistributionModeByteRange, DistributionModeRecord:
+	default:
+		return fmt.Errorf("DistributionMode must be BYTE_RANGE or RECORD, got %q", c.DistributionMode)
+	}
+	switch c.SentimentProvider {
+	case SentimentProviderLexicon, SentimentProviderGemini:
+	default:
+		return fmt.Errorf("SentimentProvider must be lexicon or gemini, got %q", c.SentimentProvider)
 	}
 	return nil
 }

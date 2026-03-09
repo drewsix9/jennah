@@ -170,6 +170,9 @@ func outputDetailed(agg *demo.AggregatedMetrics) {
 	fmt.Printf("Total words:      %d\n", agg.TotalWords)
 	fmt.Printf("Total characters: %d\n", agg.TotalCharacters)
 	fmt.Printf("Total bytes:      %d\n", agg.TotalBytesProcessed)
+	if agg.TotalRecords > 0 {
+		fmt.Printf("Total records:    %d\n", agg.TotalRecords)
+	}
 
 	fmt.Printf("\n--- Timing ---\n")
 	fmt.Printf("Min processing time:  %.3f seconds\n", agg.MinProcessingTime)
@@ -180,6 +183,21 @@ func outputDetailed(agg *demo.AggregatedMetrics) {
 		fmt.Printf("\n--- Performance ---\n")
 		fmt.Printf("Speedup:   %.2fx\n", agg.Speedup)
 		fmt.Printf("Efficiency: %.1f%%\n", agg.Efficiency*100)
+	}
+
+	if agg.Sentiment != nil {
+		fmt.Printf("\n--- Sentiment ---\n")
+		fmt.Printf("Label:            %s\n", agg.Sentiment.Label)
+		fmt.Printf("Average score:    %.3f\n", agg.Sentiment.AverageScore)
+		fmt.Printf("Positive records: %d\n", agg.Sentiment.PositiveRecords)
+		fmt.Printf("Neutral records:  %d\n", agg.Sentiment.NeutralRecords)
+		fmt.Printf("Negative records: %d\n", agg.Sentiment.NegativeRecords)
+		if len(agg.Sentiment.TopKeywords) > 0 {
+			fmt.Printf("Top keywords:     %s\n", strings.Join(agg.Sentiment.TopKeywords, ", "))
+		}
+		if agg.Sentiment.Summary != "" {
+			fmt.Printf("Summary:          %s\n", agg.Sentiment.Summary)
+		}
 	}
 
 	// Per-instance breakdown
@@ -206,8 +224,17 @@ func outputSummary(agg *demo.AggregatedMetrics) {
 	fmt.Printf("Instances: %d\n", len(agg.Instances))
 	fmt.Printf("Total lines: %d\n", agg.TotalLines)
 	fmt.Printf("Total bytes: %d (%.3f MB)\n", agg.TotalBytesProcessed, float64(agg.TotalBytesProcessed)/1024/1024)
+	if agg.TotalRecords > 0 {
+		fmt.Printf("Total records: %d\n", agg.TotalRecords)
+	}
 	fmt.Printf("Processing time: %.3f seconds (avg: %.3f)\n", agg.MaxProcessingTime, agg.AvgProcessingTime)
 	if agg.Speedup > 0 {
 		fmt.Printf("Speedup: %.2fx | Efficiency: %.1f%%\n", agg.Speedup, agg.Efficiency*100)
+	}
+	if agg.Sentiment != nil {
+		fmt.Printf("Sentiment: %s (score %.3f)\n", agg.Sentiment.Label, agg.Sentiment.AverageScore)
+		if agg.Sentiment.Summary != "" {
+			fmt.Printf("Summary: %s\n", agg.Sentiment.Summary)
+		}
 	}
 }
