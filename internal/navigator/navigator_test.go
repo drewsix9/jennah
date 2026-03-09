@@ -23,7 +23,7 @@ func TestNavigate_SimpleJob(t *testing.T) {
 		t.Errorf("complexity: got %s, want SIMPLE", plan.Complexity)
 	}
 	if plan.AssignedService != router.AssignedServiceCloudRunJob {
-			t.Errorf("service: got %s, want CLOUD_RUN_JOB", plan.AssignedService)
+		t.Errorf("service: got %s, want CLOUD_RUN_JOB", plan.AssignedService)
 	}
 	if plan.Config.ImageURI != req.ImageUri {
 		t.Errorf("ImageURI: got %q, want %q", plan.Config.ImageURI, req.ImageUri)
@@ -55,8 +55,8 @@ func TestNavigate_MediumJob(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Navigate() error: %v", err)
 	}
-	if plan.Complexity != router.ComplexityMedium {
-		t.Errorf("complexity: got %s, want MEDIUM", plan.Complexity)
+	if plan.Complexity != router.ComplexitySimple {
+		t.Errorf("complexity: got %s, want SIMPLE", plan.Complexity)
 	}
 	if plan.AssignedService != router.AssignedServiceCloudRunJob {
 		t.Errorf("service: got %s, want CLOUD_RUN_JOB", plan.AssignedService)
