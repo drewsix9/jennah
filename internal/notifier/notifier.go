@@ -5,65 +5,131 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"cloud.google.com/go/pubsub"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // JobTerminalEvent is the payload published to Pub/Sub when a job reaches
 // a terminal state (COMPLETED, FAILED, or CANCELLED).
 type JobTerminalEvent struct {
-	EventID            string  `json:"event_id"`
-	EventType          string  `json:"event_type"`
-	TenantID           string  `json:"tenant_id"`
-	JobID              string  `json:"job_id"`
-	FinalStatus        string  `json:"final_status"`
-	PreviousStatus     string  `json:"previous_status"`
-	OccurredAt         string  `json:"occurred_at"`
-	UserEmail          string  `json:"user_email,omitempty"`
-	ServiceTier        string  `json:"service_tier,omitempty"`
-	AssignedService    string  `json:"assigned_service,omitempty"`
-	CloudResourcePath  string  `json:"cloud_resource_path,omitempty"`
-	ErrorMessage       string  `json:"error_message,omitempty"`
-	JobName            string  `json:"job_name,omitempty"`
+	EventID           string `json:"event_id"`
+	EventType         string `json:"event_type"`
+	TenantID          string `json:"tenant_id"`
+	JobID             string `json:"job_id"`
+	FinalStatus       string `json:"final_status"`
+	PreviousStatus    string `json:"previous_status"`
+	OccurredAt        string `json:"occurred_at"`
+	UserEmail         string `json:"user_email,omitempty"`
+	ServiceTier       string `json:"service_tier,omitempty"`
+	AssignedService   string `json:"assigned_service,omitempty"`
+	CloudResourcePath string `json:"cloud_resource_path,omitempty"`
+	ErrorMessage      string `json:"error_message,omitempty"`
+	JobName           string `json:"job_name,omitempty"`
 }
 
 // Notifier publishes job terminal events. Implementations must be safe
 // for concurrent use.
 type Notifier interface {
 	// PublishJobTerminalEvent publishes an event for a job that reached a terminal state.
-	// Implementations should not block the caller on delivery confirmation unless necessary.
+	// The implementation resolves the correct tenant-scoped topic from the event's TenantID.
 	PublishJobTerminalEvent(ctx context.Context, event JobTerminalEvent) error
 
 	// Close releases any resources held by the notifier.
 	Close() error
 }
 
-// PubSubNotifier publishes terminal events to a Google Cloud Pub/Sub topic.
-type PubSubNotifier struct {
-	client *pubsub.Client
-	topic  *pubsub.Topic
+// TenantTopicID returns the deterministic Pub/Sub topic ID for a tenant.
+// Format: jennah-events-<tenantId>
+func TenantTopicID(topicPrefix, tenantID string) string {
+	return topicPrefix + tenantID
 }
 
-// NewPubSubNotifier creates a notifier that publishes to the given Pub/Sub topic.
+// PubSubNotifier publishes terminal events to per-tenant Pub/Sub topics.
+// Topics are created lazily on the first publish for each tenant and cached
+// for the lifetime of the notifier.
+type PubSubNotifier struct {
+	client      *pubsub.Client
+	topicPrefix string
+
+	mu     sync.RWMutex
+	topics map[string]*pubsub.Topic // tenantID → *pubsub.Topic
+}
+
+// NewPubSubNotifier creates a notifier that publishes to per-tenant Pub/Sub topics.
+// topicPrefix is prepended to each tenant ID to form the topic name
+// (e.g. "jennah-events-" → topic "jennah-events-<tenantId>").
 // The caller must call Close when the notifier is no longer needed.
-func NewPubSubNotifier(client *pubsub.Client, topicID string) *PubSubNotifier {
-	topic := client.Topic(topicID)
+func NewPubSubNotifier(client *pubsub.Client, topicPrefix string) *PubSubNotifier {
 	return &PubSubNotifier{
-		client: client,
-		topic:  topic,
+		client:      client,
+		topicPrefix: topicPrefix,
+		topics:      make(map[string]*pubsub.Topic),
 	}
 }
 
-// PublishJobTerminalEvent publishes the event to Pub/Sub. It blocks until
-// the publish is acknowledged or the context is cancelled.
+// topicFor returns a cached topic handle for the tenant, creating the Pub/Sub
+// topic on demand if it does not yet exist.
+func (n *PubSubNotifier) topicFor(ctx context.Context, tenantID string) (*pubsub.Topic, error) {
+	// Fast path: topic already cached.
+	n.mu.RLock()
+	t, ok := n.topics[tenantID]
+	n.mu.RUnlock()
+	if ok {
+		return t, nil
+	}
+
+	// Slow path: ensure topic exists, then cache it.
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	// Double-check after acquiring write lock.
+	if t, ok = n.topics[tenantID]; ok {
+		return t, nil
+	}
+
+	topicID := TenantTopicID(n.topicPrefix, tenantID)
+	t = n.client.Topic(topicID)
+
+	exists, err := t.Exists(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("check topic %s: %w", topicID, err)
+	}
+	if !exists {
+		t, err = n.client.CreateTopic(ctx, topicID)
+		if err != nil {
+			// Another process may have created it concurrently.
+			if status.Code(err) == codes.AlreadyExists {
+				t = n.client.Topic(topicID)
+			} else {
+				return nil, fmt.Errorf("create topic %s: %w", topicID, err)
+			}
+		}
+		log.Printf("Created Pub/Sub topic %s for tenant %s", topicID, tenantID)
+	}
+
+	n.topics[tenantID] = t
+	return t, nil
+}
+
+// PublishJobTerminalEvent resolves the tenant-scoped topic, lazily creates it
+// if needed, and publishes the event. It blocks until the publish is
+// acknowledged or the context is cancelled.
 func (n *PubSubNotifier) PublishJobTerminalEvent(ctx context.Context, event JobTerminalEvent) error {
+	topic, err := n.topicFor(ctx, event.TenantID)
+	if err != nil {
+		return fmt.Errorf("resolve topic for tenant %s: %w", event.TenantID, err)
+	}
+
 	data, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("marshal event: %w", err)
 	}
 
-	result := n.topic.Publish(ctx, &pubsub.Message{
+	result := topic.Publish(ctx, &pubsub.Message{
 		Data: data,
 		Attributes: map[string]string{
 			"event_type": event.EventType,
@@ -73,18 +139,23 @@ func (n *PubSubNotifier) PublishJobTerminalEvent(ctx context.Context, event JobT
 		},
 	})
 
-	// Block until the publish result is available so we can log failures.
 	serverID, err := result.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("publish event for job %s: %w", event.JobID, err)
 	}
-	log.Printf("Published terminal event for job %s (msg id: %s, status: %s)", event.JobID, serverID, event.FinalStatus)
+	log.Printf("Published terminal event for job %s to topic %s (msg id: %s, status: %s)",
+		event.JobID, TenantTopicID(n.topicPrefix, event.TenantID), serverID, event.FinalStatus)
 	return nil
 }
 
-// Close stops the topic (flushing pending publishes) and closes the client.
+// Close stops all cached topics (flushing pending publishes) and closes the client.
 func (n *PubSubNotifier) Close() error {
-	n.topic.Stop()
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	for _, t := range n.topics {
+		t.Stop()
+	}
+	n.topics = nil
 	return n.client.Close()
 }
 

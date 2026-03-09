@@ -120,7 +120,7 @@ func runServe(cmd *cobra.Command, args []string) error {
 	defer gcpBatchClient.Close()
 	log.Println("Initialized GCP Batch client")
 
-	// Initialize Pub/Sub notifier (feature-flagged).
+	// Initialize Pub/Sub notifier (feature-flagged, per-tenant topics).
 	var jobNotifier notifier.Notifier
 	if cfg.PubSub.Enabled {
 		pubsubClient, err := pubsub.NewClient(ctx, cfg.PubSub.ProjectID)
@@ -128,8 +128,8 @@ func runServe(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to create Pub/Sub client: %w", err)
 		}
 		defer pubsubClient.Close()
-		jobNotifier = notifier.NewPubSubNotifier(pubsubClient, cfg.PubSub.TopicID)
-		log.Printf("Initialized Pub/Sub notifier (project: %s, topic: %s)", cfg.PubSub.ProjectID, cfg.PubSub.TopicID)
+		jobNotifier = notifier.NewPubSubNotifier(pubsubClient, cfg.PubSub.TopicPrefix)
+		log.Printf("Initialized per-tenant Pub/Sub notifier (project: %s, topic_prefix: %s)", cfg.PubSub.ProjectID, cfg.PubSub.TopicPrefix)
 	} else {
 		jobNotifier = &notifier.NoopNotifier{}
 		log.Println("Pub/Sub notifications disabled (set PUBSUB_ENABLED=true to enable)")
