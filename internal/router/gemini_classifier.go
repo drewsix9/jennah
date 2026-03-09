@@ -11,27 +11,24 @@ import (
 
 const geminiSystemInstruction = `You are a highly analytical and deterministic Cloud Infrastructure Job Router. You evaluate incoming computing workloads and make strict routing decisions without deviation.
 
-Your system is receiving job payloads containing CPU (in mCPU), Memory (in MiB), Duration (in minutes), and Machine Type requests. You must classify the job's complexity based strictly on the following boundary rules:
+Your system is receiving job payloads containing CPU (in mCPU), Memory (in MiB), Duration (in seconds), and Machine Type requests. You must classify the job's complexity into exactly one of TWO tiers based strictly on the following boundary rules:
 
-The SIMPLE Tier (Strict Logical AND):
-To be classified as SIMPLE, a job must stay under ALL of these minimum thresholds simultaneously. If it breaks even one rule, it is rejected from the Simple tier:
-- CPU: 500 mCPU or less.
-- Memory: 512 MiB or less.
-- Duration: 10 minutes or less.
+1. The SIMPLE Tier (Strict Logical AND):
+To be classified as SIMPLE, a job must stay under ALL of these thresholds simultaneously. If it breaks even one rule, it is rejected from the Simple tier:
+- CPU: 4000 mCPU or less.
+- Memory: 8192 MiB or less.
+- Duration: 3600 seconds or less.
 - Machine Type: Must be left blank, empty, or null.
 
-The COMPLEX Tier (Logical OR / Tripwires):
+2. The COMPLEX Tier (Logical OR / Tripwires):
 To be classified as COMPLEX, a job only needs to exceed ANY SINGLE upper threshold. Hitting just one of these wires instantly flags the job as Complex:
 - CPU: Greater than 4000 mCPU.
 - Memory: Greater than 8192 MiB.
-- Duration: Greater than 60 minutes (1 hour).
+- Duration: Greater than 3600 seconds.
 - Machine Type: If a specific Machine Type is explicitly requested (not blank), ignore CPU/Memory math and immediately force the job to be COMPLEX.
 
-The MEDIUM Tier (Fallback — treated as SIMPLE):
-If a job is rejected from the SIMPLE tier (because it is too large) but does not trip any of the wires in the COMPLEX tier, classify it as MEDIUM. The system will treat MEDIUM the same as SIMPLE and route it to Cloud Run Jobs.
-
-You must output your decision strictly as a valid JSON object. Do not include markdown formatting, backticks, or any conversational text. Use this exact schema:
-{"complexity": "SIMPLE | MEDIUM | COMPLEX", "reason": "Provide a brief, 1-sentence explanation of which rules were evaluated to reach this decision."}`
+You must output your decision strictly as a valid JSON object. Do not include markdown formatting, code fences, backticks, or any conversational text. Use this exact schema:
+{"complexity": "SIMPLE | COMPLEX", "reason": "Provide a brief, 1-sentence explanation of which rules were evaluated to reach this decision."}`
 
 // GeminiClassification is the JSON response returned by Gemini.
 type GeminiClassification struct {
@@ -66,15 +63,14 @@ func ClassifyWithGemini(ctx context.Context, _ string, cpuMillis, memoryMiB, dur
 		return nil, fmt.Errorf("failed to create Vertex AI client: %w", err)
 	}
 
-	durationMin := durationSec / 60
 	machineTypeStr := machineType
 	if machineTypeStr == "" {
 		machineTypeStr = `""`
 	}
 
 	prompt := fmt.Sprintf(
-		`Evaluate this job -> CPU: %d mCPU, Memory: %d MiB, Duration: %d minutes, Machine Type: %s`,
-		cpuMillis, memoryMiB, durationMin, machineTypeStr,
+		`Evaluate this job -> CPU: %d mCPU, Memory: %d MiB, Duration: %d seconds, Machine Type: %s`,
+		cpuMillis, memoryMiB, durationSec, machineTypeStr,
 	)
 
 	result, err := client.Models.GenerateContent(ctx, "gemini-2.0-flash-001", genai.Text(prompt), &genai.GenerateContentConfig{
