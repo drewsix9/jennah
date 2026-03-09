@@ -52,7 +52,7 @@ DOCKER_COMMAND='docker run -d \
   -e CLOUD_RUN_IMAGE_REGISTRY='"$CLOUD_RUN_IMAGE_REGISTRY"' \
   -e CLOUD_TASKS_SERVICE_ACCOUNT='"$SERVICE_ACCOUNT"' \
   -e PUBSUB_ENABLED=true \
-  -e PUBSUB_TOPIC_ID=jennah-job-events \
+  -e PUBSUB_TOPIC_PREFIX=jennah-events- \
   -e PUBSUB_PROJECT_ID='"$PROJECT_ID"' \
   '"$IMAGE"' \
   serve'
