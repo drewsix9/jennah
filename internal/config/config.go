@@ -32,14 +32,13 @@ type PubSubConfig struct {
 	// Defaults to false; set PUBSUB_ENABLED=true to enable.
 	Enabled bool
 
-	// ProjectID is the GCP project that owns the Pub/Sub topics.
+	// ProjectID is the GCP project that owns the Pub/Sub topic.
 	// If not set, defaults to BatchProvider.ProjectID.
 	ProjectID string
 
-	// TopicPrefix is prepended to the tenant ID to form per-tenant topic names.
-	// Example: "jennah-events-" → topic "jennah-events-<tenantId>".
-	// Defaults to "jennah-events-".
-	TopicPrefix string
+	// TopicID is the shared Pub/Sub topic for all job terminal events.
+	// Defaults to "jennah-job-events".
+	TopicID string
 }
 
 // CloudRunConfig contains Cloud Run Jobs provider configuration.
@@ -122,8 +121,8 @@ func LoadFromEnv() (*Config, error) {
 
 	// Load Pub/Sub notification configuration.
 	config.PubSub = PubSubConfig{
-		Enabled:     os.Getenv("PUBSUB_ENABLED") == "true",
-		TopicPrefix: getEnvOrDefault("PUBSUB_TOPIC_PREFIX", "jennah-events-"),
+		Enabled: os.Getenv("PUBSUB_ENABLED") == "true",
+		TopicID: getEnvOrDefault("PUBSUB_TOPIC_ID", "jennah-job-events"),
 	}
 	if pubsubProjectID := os.Getenv("PUBSUB_PROJECT_ID"); pubsubProjectID != "" {
 		config.PubSub.ProjectID = pubsubProjectID
@@ -205,8 +204,8 @@ func (c *Config) Validate() error {
 		if c.PubSub.ProjectID == "" {
 			return fmt.Errorf("PUBSUB_PROJECT_ID (or BATCH_PROJECT_ID fallback) is required when PUBSUB_ENABLED=true")
 		}
-		if c.PubSub.TopicPrefix == "" {
-			return fmt.Errorf("PUBSUB_TOPIC_PREFIX is required when PUBSUB_ENABLED=true")
+		if c.PubSub.TopicID == "" {
+			return fmt.Errorf("PUBSUB_TOPIC_ID is required when PUBSUB_ENABLED=true")
 		}
 	}
 

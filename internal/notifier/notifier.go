@@ -42,98 +42,75 @@ type Notifier interface {
 	Close() error
 }
 
-// TenantTopicID returns the deterministic Pub/Sub topic ID for a tenant.
-// Format: jennah-events-<tenantId>
-func TenantTopicID(topicPrefix, tenantID string) string {
-	return topicPrefix + tenantID
-}
-
-// PubSubNotifier publishes terminal events to per-tenant Pub/Sub topics.
-// Topics are created lazily on the first publish for each tenant and cached
-// for the lifetime of the notifier.
+// PubSubNotifier publishes terminal events to a shared Pub/Sub topic.
+// The topic is created lazily on the first publish and cached for the
+// lifetime of the notifier. Tenant isolation is maintained via the
+// tenant_id attribute and payload field on each message.
 // If ConsumerPushURL is set, a push subscription pointing to the consumer
-// service is also ensured whenever a new topic is created.
+// service is also ensured when the topic is first created.
 type PubSubNotifier struct {
-	client         *pubsub.Client
-	topicPrefix    string
+	client          *pubsub.Client
+	topicID         string
 	ConsumerPushURL string // e.g. "https://jennah-consumer-xxx.run.app/pubsub/push"
 
-	mu     sync.RWMutex
-	topics map[string]*pubsub.Topic // tenantID → *pubsub.Topic
+	once  sync.Once
+	topic *pubsub.Topic
+	err   error
 }
 
-// NewPubSubNotifier creates a notifier that publishes to per-tenant Pub/Sub topics.
-// topicPrefix is prepended to each tenant ID to form the topic name
-// (e.g. "jennah-events-" → topic "jennah-events-<tenantId>").
+// NewPubSubNotifier creates a notifier that publishes to a single shared
+// Pub/Sub topic identified by topicID (e.g. "jennah-job-events").
 // The caller must call Close when the notifier is no longer needed.
-func NewPubSubNotifier(client *pubsub.Client, topicPrefix string) *PubSubNotifier {
+func NewPubSubNotifier(client *pubsub.Client, topicID string) *PubSubNotifier {
 	return &PubSubNotifier{
-		client:      client,
-		topicPrefix: topicPrefix,
-		topics:      make(map[string]*pubsub.Topic),
+		client:  client,
+		topicID: topicID,
 	}
 }
 
-// topicFor returns a cached topic handle for the tenant, creating the Pub/Sub
-// topic on demand if it does not yet exist.
-func (n *PubSubNotifier) topicFor(ctx context.Context, tenantID string) (*pubsub.Topic, error) {
-	// Fast path: topic already cached.
-	n.mu.RLock()
-	t, ok := n.topics[tenantID]
-	n.mu.RUnlock()
-	if ok {
-		return t, nil
-	}
+// ensureTopic returns the cached topic handle, creating the Pub/Sub topic
+// on demand if it does not yet exist. It is safe for concurrent use.
+func (n *PubSubNotifier) ensureTopic(ctx context.Context) (*pubsub.Topic, error) {
+	n.once.Do(func() {
+		t := n.client.Topic(n.topicID)
 
-	// Slow path: ensure topic exists, then cache it.
-	n.mu.Lock()
-	defer n.mu.Unlock()
-
-	// Double-check after acquiring write lock.
-	if t, ok = n.topics[tenantID]; ok {
-		return t, nil
-	}
-
-	topicID := TenantTopicID(n.topicPrefix, tenantID)
-	t = n.client.Topic(topicID)
-
-	exists, err := t.Exists(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("check topic %s: %w", topicID, err)
-	}
-	if !exists {
-		t, err = n.client.CreateTopic(ctx, topicID)
+		exists, err := t.Exists(ctx)
 		if err != nil {
-			// Another process may have created it concurrently.
-			if status.Code(err) == codes.AlreadyExists {
-				t = n.client.Topic(topicID)
-			} else {
-				return nil, fmt.Errorf("create topic %s: %w", topicID, err)
-			}
+			n.err = fmt.Errorf("check topic %s: %w", n.topicID, err)
+			return
 		}
-		log.Printf("Created Pub/Sub topic %s for tenant %s", topicID, tenantID)
+		if !exists {
+			t, err = n.client.CreateTopic(ctx, n.topicID)
+			if err != nil {
+				if status.Code(err) == codes.AlreadyExists {
+					t = n.client.Topic(n.topicID)
+				} else {
+					n.err = fmt.Errorf("create topic %s: %w", n.topicID, err)
+					return
+				}
+			}
+			log.Printf("Created Pub/Sub topic %s", n.topicID)
+		}
 
 		// If a consumer push URL is configured, ensure a push subscription
-		// exists so new events are delivered to the consumer service.
+		// exists so events are delivered to the consumer service.
 		if n.ConsumerPushURL != "" {
-			if err := n.ensurePushSubscription(ctx, t, topicID, tenantID); err != nil {
-				// Non-fatal: log and continue; messages can be consumed later.
-				log.Printf("WARNING: could not create push subscription for topic %s: %v", topicID, err)
+			if err := n.ensurePushSubscription(ctx, t); err != nil {
+				log.Printf("WARNING: could not create push subscription for topic %s: %v", n.topicID, err)
 			}
 		}
-	}
 
-	n.topics[tenantID] = t
-	return t, nil
+		n.topic = t
+	})
+	return n.topic, n.err
 }
 
-// PublishJobTerminalEvent resolves the tenant-scoped topic, lazily creates it
-// if needed, and publishes the event. It blocks until the publish is
-// acknowledged or the context is cancelled.
+// PublishJobTerminalEvent publishes the event to the shared topic. It blocks
+// until the publish is acknowledged or the context is cancelled.
 func (n *PubSubNotifier) PublishJobTerminalEvent(ctx context.Context, event JobTerminalEvent) error {
-	topic, err := n.topicFor(ctx, event.TenantID)
+	topic, err := n.ensureTopic(ctx)
 	if err != nil {
-		return fmt.Errorf("resolve topic for tenant %s: %w", event.TenantID, err)
+		return fmt.Errorf("resolve topic %s: %w", n.topicID, err)
 	}
 
 	data, err := json.Marshal(event)
@@ -156,25 +133,23 @@ func (n *PubSubNotifier) PublishJobTerminalEvent(ctx context.Context, event JobT
 		return fmt.Errorf("publish event for job %s: %w", event.JobID, err)
 	}
 	log.Printf("Published terminal event for job %s to topic %s (msg id: %s, status: %s)",
-		event.JobID, TenantTopicID(n.topicPrefix, event.TenantID), serverID, event.FinalStatus)
+		event.JobID, n.topicID, serverID, event.FinalStatus)
 	return nil
 }
 
-// Close stops all cached topics (flushing pending publishes) and closes the client.
+// Close stops the cached topic (flushing pending publishes) and closes the client.
 func (n *PubSubNotifier) Close() error {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	for _, t := range n.topics {
-		t.Stop()
+	if n.topic != nil {
+		n.topic.Stop()
 	}
-	n.topics = nil
 	return n.client.Close()
 }
 
-// ensurePushSubscription creates a push subscription for topicID → ConsumerPushURL
-// if one does not already exist. Subscription ID: "<topicID>-consumer-push".
-func (n *PubSubNotifier) ensurePushSubscription(ctx context.Context, t *pubsub.Topic, topicID, tenantID string) error {
-	subID := topicID + "-consumer-push"
+// ensurePushSubscription creates a push subscription for the shared topic →
+// ConsumerPushURL if one does not already exist.
+// Subscription ID: "<topicID>-consumer-push".
+func (n *PubSubNotifier) ensurePushSubscription(ctx context.Context, t *pubsub.Topic) error {
+	subID := n.topicID + "-consumer-push"
 	sub := n.client.Subscription(subID)
 	exists, err := sub.Exists(ctx)
 	if err != nil {
@@ -195,7 +170,7 @@ func (n *PubSubNotifier) ensurePushSubscription(ctx context.Context, t *pubsub.T
 		}
 		return fmt.Errorf("create push subscription %s: %w", subID, err)
 	}
-	log.Printf("Created push subscription %s → %s for tenant %s", subID, n.ConsumerPushURL, tenantID)
+	log.Printf("Created push subscription %s → %s", subID, n.ConsumerPushURL)
 	return nil
 }
 

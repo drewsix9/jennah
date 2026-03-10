@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Jennah backend publishes terminal job events to **per-tenant Pub/Sub topics**. Each tenant (identified by a stable `TenantId`) gets a dedicated topic that is lazily created on the first terminal event. The frontend should implement a consumer service that subscribes to the tenant-scoped topics and translates these backend events into user-facing notifications (Slack, email, webhooks, in-app alerts).
+The Jennah backend publishes terminal job events to a **single shared Pub/Sub topic** (`jennah-job-events`). All tenants' events are published to this one topic with `tenant_id` included in both the message payload and Pub/Sub attributes. The frontend consumer service (deployed as a Cloud Run service) subscribes to this topic and translates events into user-facing notifications (Slack, email, webhooks, in-app alerts). Tenant isolation is enforced at the application and data layer, not at the Pub/Sub topic level.
 
 ## Architecture
 
@@ -12,29 +12,26 @@ The Jennah backend publishes terminal job events to **per-tenant Pub/Sub topics*
 │       (Backend)          │
 └────────────┬─────────────┘
              │ publishes job.terminal event
-             │ (topic resolved from TenantId)
+             │ (tenant_id in payload + attributes)
              ▼
 ┌──────────────────────────────────────────────────┐
-│         Per-Tenant Pub/Sub Topics                │
+│       Shared Pub/Sub Topic                       │
+│       jennah-job-events                          │
 │                                                  │
-│  jennah-events-<tenantA>   jennah-events-<tenantB>
-│        │                          │              │
-│        ├─► Sub (Tenant A)         ├─► Sub (B)   │
-│        ├─► Sub (Analytics A)      ├─► Sub (…)   │
-│        └─► Sub (Audit A)         └─► Sub (…)    │
+│    └─► jennah-job-events-consumer-push           │
+│        (push subscription → consumer service)    │
 └──────────────────────────────────────────────────┘
              │
              ▼
 ┌──────────────────────────┐
-│    Frontend Consumer     │
-│  (Cloud Function or      │
-│   Cloud Run Service)     │
+│    Jennah Consumer       │
+│   (Cloud Run Service)    │
 └────────────┬─────────────┘
              │
+             ├─► In-App Notification DB (Spanner)
              ├─► Slack Integration
              ├─► Email Service
-             ├─► Webhook Dispatcher
-             └─► In-App Notification DB
+             └─► Webhook Dispatcher
              ▼
 ┌──────────────────────────┐
 │    User Notification     │
@@ -43,35 +40,37 @@ The Jennah backend publishes terminal job events to **per-tenant Pub/Sub topics*
 └──────────────────────────┘
 ```
 
-## Topic Naming Convention
+## Topic
 
-Each tenant's topic name is deterministic:
+All job terminal events are published to a single shared topic:
 
 ```
-jennah-events-<TenantId>
+jennah-job-events
 ```
 
-- `TenantId` is a UUID (e.g. `550e8400-e29b-41d4-a716-446655440000`).
-- Full topic resource name: `projects/<project>/topics/jennah-events-<TenantId>`.
-- The prefix (`jennah-events-`) is configurable via the `PUBSUB_TOPIC_PREFIX` environment variable.
+- Full topic resource name: `projects/<project>/topics/jennah-job-events`.
+- Configurable via the `PUBSUB_TOPIC_ID` environment variable (default: `jennah-job-events`).
 
 ### Topic Lifecycle
 
-- **Created by**: The worker, lazily, when the first terminal event for a tenant is published.
+- **Created by**: The worker, lazily, on the first publish.
 - **Created how**: `CreateTopic` with `AlreadyExists` handled idempotently.
-- **Deleted**: Not automatically deleted. Ops should clean up topics for deprovisioned tenants.
+- **Deleted**: Not automatically deleted.
 
-## Subscription Naming Convention
+## Subscription
 
-Each tenant gets dedicated subscriptions. Recommended naming:
+The worker auto-creates a single push subscription when `CONSUMER_PUSH_URL` is set:
 
 ```
-jennah-events-<TenantId>-notifications   → Frontend consumer
-jennah-events-<TenantId>-analytics       → BigQuery / analytics pipeline
-jennah-events-<TenantId>-audit           → Firestore / Cloud Logging
+jennah-job-events-consumer-push   → Consumer Cloud Run service
 ```
 
-Subscriptions are **not** created by the backend. Frontend or infrastructure tooling provisions them from the deterministic topic name.
+Additional subscriptions can be added by ops or infrastructure tooling for analytics, audit, or other downstream consumers:
+
+```
+jennah-job-events-analytics       → BigQuery / analytics pipeline
+jennah-job-events-audit           → Firestore / Cloud Logging
+```
 
 ## Event Payload Structure
 
@@ -108,19 +107,13 @@ status: COMPLETED|FAILED|CANCELLED
 
 ### 1. Subscription Strategy
 
-Each tenant gets dedicated subscriptions on their own topic:
+A single push subscription (`jennah-job-events-consumer-push`) delivers all events to the consumer Cloud Run service. Additional pull or push subscriptions can be created on the same topic for analytics, audit, or other pipelines.
 
-- **`jennah-events-<TenantId>-notifications`** → Cloud Function/Run for user notifications
-- **`jennah-events-<TenantId>-analytics`** → BigQuery for analytics/reporting
-- **`jennah-events-<TenantId>-audit`** → Firestore/Cloud Logging for compliance
+Each subscription maintains an independent message queue and can be consumed at different rates.
 
-Each subscription maintains independent message queues and can be consumed at different rates.
+**Provisioning**: The worker auto-creates the consumer push subscription when `CONSUMER_PUSH_URL` is set. Additional subscriptions are created by ops or infrastructure tooling.
 
-**Provisioning**: Subscriptions should be created by the frontend or infrastructure tooling when a new tenant topic appears (or when the first event arrives). The backend only creates the topic; subscription ownership belongs to the consumer layer.
-
-**Discovery**: Since topic names are deterministic (`jennah-events-<TenantId>`), the consumer can compute the expected topic name from the tenant ID and create subscriptions on demand.
-
-### 2. Consumer Service (Cloud Function or Cloud Run)
+### 2. Consumer Service (Cloud Run)
 
 **Purpose**: Receive Pub/Sub events and route to notification channels
 
@@ -250,21 +243,19 @@ cache.set(event.event_id, true)
 // Process notification
 ```
 
-### 8. Per-Tenant Isolation
+### 8. Tenant Isolation
 
-Isolation is enforced at the Pub/Sub topic level — each tenant's events are published to a dedicated topic:
+All events flow through a single shared topic. Tenant isolation is enforced at the application and data layer:
 
-- **Topic isolation**: Tenant A's events go to `jennah-events-<tenantA>`, tenant B's to `jennah-events-<tenantB>`. No cross-tenant event leakage at the infrastructure layer.
-- **Subscription isolation**: Each tenant's consumers subscribe only to their own topic.
-- Extract `tenant_id` from event payload for additional in-app validation.
+- **Payload isolation**: Every message carries `tenant_id` in both the JSON payload and the Pub/Sub attributes. The consumer uses this to store notifications per tenant in Spanner.
+- Extract `tenant_id` from event payload for validation.
 - Look up tenant record to get owner's contact info.
 - Validate tenant can receive notifications (not suspended, etc.).
 - Log `tenant_id` in all audit records.
 
 **Security considerations**:
 
-- **IAM per topic**: Grant `pubsub.subscriber` only on the tenant's own topic to that tenant's consumer identity, preventing cross-tenant access.
-- Never expose one tenant's events to another.
+- The consumer service is internal (Cloud Run with IAM authentication); external tenants do not subscribe directly to the topic.
 - Webhook endpoints should be verified (HMAC signature).
 - Email addresses validated (no cross-tenant leaks).
 - Slack integrations per-tenant (don't share workspace tokens).
@@ -319,34 +310,33 @@ Isolation is enforced at the Pub/Sub topic level — each tenant's events are pu
 
 **Worker (backend)**:
 
-- `pubsub.editor` or `pubsub.admin` on the GCP project (to lazily create per-tenant topics)
-- `pubsub.publisher` on all `jennah-events-*` topics
+- `pubsub.editor` on the GCP project (to lazily create the topic and subscription)
+- `pubsub.publisher` on `jennah-job-events`
 
-**Frontend consumer**:
+**Consumer service**:
 
-- `pubsub.subscriber` on per-tenant subscriptions
-- `pubsub.editor` if the consumer auto-creates subscriptions on tenant topics
+- No Pub/Sub permissions needed when using push delivery (Pub/Sub pushes to the consumer endpoint)
 - Write access to notification systems (Slack API, SendGrid, custom webhooks)
 - Read access to user/tenant database for preferences
 - Write access to audit log
 
 ### Scaling
 
-- Pub/Sub automatically distributes load across subscribers per topic
-- Cloud Functions/Run auto-scale based on load
-- Per-tenant topics naturally partition load — high-volume tenants don't affect others
+- Pub/Sub automatically distributes load across push endpoints
+- Cloud Run auto-scales based on incoming request load
+- Use Pub/Sub message attributes (`tenant_id`, `status`) for downstream filtering
 - Set appropriate concurrency limits to avoid overwhelming downstream services
-- Monitor backlog per tenant and adjust as needed
+- Monitor subscription backlog and adjust as needed
 
 ### Backend Configuration
 
-The worker uses environment variables to configure per-tenant Pub/Sub:
+The worker uses environment variables to configure Pub/Sub:
 
-| Variable              | Default                            | Description                                   |
-| --------------------- | ---------------------------------- | --------------------------------------------- |
-| `PUBSUB_ENABLED`      | `false`                            | Set to `true` to enable Pub/Sub notifications |
-| `PUBSUB_PROJECT_ID`   | (falls back to `BATCH_PROJECT_ID`) | GCP project owning the topics                 |
-| `PUBSUB_TOPIC_PREFIX` | `jennah-events-`                   | Prefix prepended to TenantId for topic names  |
+| Variable            | Default                            | Description                                   |
+| ------------------- | ---------------------------------- | --------------------------------------------- |
+| `PUBSUB_ENABLED`    | `false`                            | Set to `true` to enable Pub/Sub notifications |
+| `PUBSUB_PROJECT_ID` | (falls back to `BATCH_PROJECT_ID`) | GCP project owning the topic                  |
+| `PUBSUB_TOPIC_ID`   | `jennah-job-events`                | Shared topic for all job terminal events      |
 
 ## Testing Strategy
 

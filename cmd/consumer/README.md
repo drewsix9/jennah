@@ -72,10 +72,10 @@ make consumer-test-health
 
 ## Worker Integration
 
-After deploying the consumer, set `CONSUMER_PUSH_URL` on the worker so it auto-creates Pub/Sub push subscriptions pointing to this service:
+After deploying the consumer, set `CONSUMER_PUSH_URL` on the worker so it auto-creates a Pub/Sub push subscription on the shared `jennah-job-events` topic pointing to this service:
 
 ```bash
 CONSUMER_PUSH_URL=https://<consumer-cloud-run-url>/pubsub/push
 ```
 
-The worker reads this variable at startup and configures push subscriptions per tenant topic. See `cmd/worker/cmd/serve.go` for details.
+The worker reads this variable at startup and ensures a single push subscription (`jennah-job-events-consumer-push`) delivers all tenant events to the consumer. See `cmd/worker/cmd/serve.go` for details.
