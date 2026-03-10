@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -157,9 +158,13 @@ func (s *GatewayService) SubmitJob(
 		return nil, err
 	}
 
-	if req.Msg.ImageUri == "" {
-		log.Printf("Error: imageUri is empty")
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("imageUri is required"))
+	resolvedImageURI, err := resolveSubmittedImageURI(req.Msg.GetImageUri(), req.Msg.GetEnvVars(), s.defaultDWPImageURI)
+	if err != nil {
+		log.Printf("Error resolving image_uri: %v", err)
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+	if isDistributedModeEnabled(req.Msg.GetEnvVars()) && strings.TrimSpace(req.Msg.GetImageUri()) != "" && strings.TrimSpace(req.Msg.GetImageUri()) != resolvedImageURI {
+		log.Printf("Distributed job image override: requested %q, using %q", req.Msg.GetImageUri(), resolvedImageURI)
 	}
 
 	gatewayJobID := uuid.NewString()
@@ -175,7 +180,7 @@ func (s *GatewayService) SubmitJob(
 
 	workerReq := connect.NewRequest(&jennahv1.SubmitJobRequest{
 		JobId:            gatewayJobID,
-		ImageUri:         req.Msg.ImageUri,
+		ImageUri:         resolvedImageURI,
 		EnvVars:          req.Msg.EnvVars,
 		ResourceProfile:  req.Msg.ResourceProfile,
 		ResourceOverride: req.Msg.ResourceOverride,

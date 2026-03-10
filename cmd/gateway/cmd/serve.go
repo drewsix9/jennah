@@ -80,7 +80,12 @@ func runServe(cmd *cobra.Command, args []string) error {
 		log.Printf("Created client for worker at %s", workerURL)
 	}
 
-	gatewayService := service.NewGatewayService(router, workerClients, dbClient)
+	gatewayService := service.NewGatewayService(
+		router,
+		workerClients,
+		dbClient,
+		os.Getenv("DEFAULT_DWP_IMAGE_URI"),
+	)
 
 	origins := strings.Split(allowedOrigins, ",")
 	for i, origin := range origins {
