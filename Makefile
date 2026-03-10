@@ -1,4 +1,6 @@
-.PHONY: build gw-docker-build gw-docker-run gw-docker-push gw-deploy clean generate
+.PHONY: build gw-docker-build gw-docker-run gw-docker-push gw-deploy \
+        consumer-build consumer-docker-build consumer-docker-run consumer-docker-push consumer-deploy consumer-url consumer-test-health \
+        clean generate
 
 PROJECT_ID = labs-169405
 IMAGE_NAME = jennah-gateway
@@ -7,6 +9,10 @@ AR_IMAGE = asia-docker.pkg.dev/$(PROJECT_ID)/asia.gcr.io/$(IMAGE_NAME):$(IMAGE_T
 REGION = asia-northeast1
 VPC_CONNECTOR = cr-vpccon-tokyo-dev
 WORKER_IP = 10.146.0.26
+
+# Consumer image variables
+CONSUMER_IMAGE_NAME = jennah-consumer
+CONSUMER_AR_IMAGE = asia-docker.pkg.dev/$(PROJECT_ID)/asia.gcr.io/$(CONSUMER_IMAGE_NAME):$(IMAGE_TAG)
 
 # Generate codes from proto changes
 generate:
@@ -60,7 +66,61 @@ gw-test-health:
 	  --format='value(status.url)')/health
 
 
+# ─── Consumer targets ─────────────────────────────────────────────────────────
+
+# Build consumer binary
+consumer-build:
+	cd cmd/consumer && go build -o ../../bin/consumer .
+
+# Build the consumer Docker image
+consumer-docker-build:
+	docker build -f Dockerfile.consumer -t $(CONSUMER_IMAGE_NAME):$(IMAGE_TAG) .
+	docker tag $(CONSUMER_IMAGE_NAME):$(IMAGE_TAG) $(CONSUMER_AR_IMAGE)
+
+# Run the consumer Docker container locally
+consumer-docker-run:
+	docker run --rm -p 8080:8080 \
+	  -e DB_PROJECT_ID=$(PROJECT_ID) \
+	  -e DB_INSTANCE=alphaus-dev \
+	  -e DB_DATABASE=main \
+	  $(CONSUMER_IMAGE_NAME):$(IMAGE_TAG)
+
+# Push the consumer Docker image to Artifact Registry
+consumer-docker-push:
+	gcloud auth configure-docker asia-docker.pkg.dev
+	docker push $(CONSUMER_AR_IMAGE)
+
+# Deploy the consumer to Cloud Run with VPC egress
+consumer-deploy:
+	gcloud run deploy $(CONSUMER_IMAGE_NAME) \
+	  --image $(CONSUMER_AR_IMAGE) \
+	  --platform managed \
+	  --region $(REGION) \
+	  --project $(PROJECT_ID) \
+	  --port 8080 \
+	  --allow-unauthenticated \
+	  --vpc-egress all-traffic \
+	  --vpc-connector $(VPC_CONNECTOR) \
+	  --set-env-vars DB_PROJECT_ID=$(PROJECT_ID),DB_INSTANCE=alphaus-dev,DB_DATABASE=main
+
+# Get consumer Cloud Run service URL
+consumer-url:
+	@gcloud run services describe $(CONSUMER_IMAGE_NAME) \
+	  --region $(REGION) \
+	  --project $(PROJECT_ID) \
+	  --format='value(status.url)'
+
+# Test consumer health endpoint
+consumer-test-health:
+	@echo "Testing consumer health endpoint..."
+	@curl -s $$(gcloud run services describe $(CONSUMER_IMAGE_NAME) \
+	  --region $(REGION) \
+	  --project $(PROJECT_ID) \
+	  --format='value(status.url)')/health
+
 clean:
 	rm -rf bin/
 	docker rmi $(IMAGE_NAME):$(IMAGE_TAG) 2>/dev/null || true
 	docker rmi $(AR_IMAGE) 2>/dev/null || true
+	docker rmi $(CONSUMER_IMAGE_NAME):$(IMAGE_TAG) 2>/dev/null || true
+	docker rmi $(CONSUMER_AR_IMAGE) 2>/dev/null || true

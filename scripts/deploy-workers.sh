@@ -64,6 +64,7 @@ DOCKER_COMMAND='docker run -d \
   -e PUBSUB_ENABLED=true \
   -e PUBSUB_TOPIC_PREFIX=jennah-events- \
   -e PUBSUB_PROJECT_ID='"$PROJECT_ID"' \
+  -e CONSUMER_PUSH_URL='"$CONSUMER_PUSH_URL"' \
   '"$IMAGE"' \
   serve'
 
