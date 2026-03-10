@@ -110,6 +110,13 @@ func (s *WorkerService) SubmitJob(
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("image_uri is required"))
 	}
 
+	// Normalize env vars and auto-resolve distributed INPUT_DATA_SIZE when omitted.
+	req.Msg.EnvVars = cloneEnvVars(req.Msg.GetEnvVars())
+	if err := ensureDistributedInputDataSize(ctx, req.Msg.EnvVars, getGCSObjectSize); err != nil {
+		log.Printf("Error resolving INPUT_DATA_SIZE for distributed job: %v", err)
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	}
+
 	// Use canonical job ID from gateway when provided; otherwise generate one
 	// for backward compatibility (e.g., direct worker calls).
 	internalJobID := req.Msg.JobId

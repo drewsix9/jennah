@@ -132,8 +132,8 @@ func (poller *JobPoller) poll(ctx context.Context, server *WorkerService, poller
 			status, err := poller.batchProvider.GetJobStatus(ctx, poller.gcpResourcePath)
 			if err != nil {
 				poller.failedAttempts++
-				log.Printf("Error polling job %s (attempt %d/%d) [service=%s, tier=%s, path=%s]: %v", 
-					poller.jobID, poller.failedAttempts, poller.maxFailedAttempts, 
+				log.Printf("Error polling job %s (attempt %d/%d) [service=%s, tier=%s, path=%s]: %v",
+					poller.jobID, poller.failedAttempts, poller.maxFailedAttempts,
 					poller.assignedService, poller.serviceTier, poller.gcpResourcePath, err)
 
 				// If this is a SIMPLE tier job failing with Cloud Run provider, it might actually be a Cloud Batch job
@@ -200,7 +200,7 @@ func (poller *JobPoller) poll(ctx context.Context, server *WorkerService, poller
 					event := notifier.BuildEvent(transitionID, poller.tenantID, poller.jobID, dbStatus, oldStatus)
 					event.CloudResourcePath = poller.gcpResourcePath
 					event.ServiceTier = poller.serviceTier
-					event.AssignedService = string(poller.assignedService)
+					event.AssignedService = poller.assignedService.String()
 					server.publishTerminalEvent(ctx, event, poller.tenantID)
 
 					poller.stop()
