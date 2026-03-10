@@ -89,3 +89,41 @@ func TestProcess_RecordMode_DoesNotSplitSingleJSONRecord(t *testing.T) {
 		t.Fatalf("instance 1 expected 0 records, got %d", m1.RecordsProcessed)
 	}
 }
+
+func TestProcess_ByteRange_EmitsSentimentMetrics(t *testing.T) {
+	tmpDir := t.TempDir()
+	inputFile := filepath.Join(tmpDir, "reviews.txt")
+	content := strings.Join([]string{
+		"amazing fast delivery",
+		"awful packaging and terrible support",
+		"works as expected",
+	}, "\n") + "\n"
+
+	if err := os.WriteFile(inputFile, []byte(content), 0644); err != nil {
+		t.Fatalf("write input file: %v", err)
+	}
+
+	cfg := &DistributedConfig{
+		InstanceID:       0,
+		TotalInstances:   1,
+		InputDataPath:    inputFile,
+		InputDataSize:    0,
+		OutputBasePath:   tmpDir,
+		DistributionMode: DistributionModeByteRange,
+	}
+
+	metrics, err := NewProcessor(cfg).Process(context.Background())
+	if err != nil {
+		t.Fatalf("Process() error: %v", err)
+	}
+
+	if metrics.RecordsProcessed != 3 {
+		t.Fatalf("expected 3 processed records, got %d", metrics.RecordsProcessed)
+	}
+	if metrics.Sentiment == nil {
+		t.Fatal("expected sentiment summary for byte-range processing")
+	}
+	if metrics.Sentiment.TotalRecords() != metrics.RecordsProcessed {
+		t.Fatalf("sentiment total records: got %d, want %d", metrics.Sentiment.TotalRecords(), metrics.RecordsProcessed)
+	}
+}
