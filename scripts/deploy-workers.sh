@@ -8,6 +8,15 @@
 
 set -e  # Exit on error
 
+GCLOUD_BIN="${GCLOUD_BIN:-gcloud}"
+case "${OSTYPE:-}" in
+  msys*|cygwin*|win32*)
+    if command -v gcloud.cmd >/dev/null 2>&1; then
+      GCLOUD_BIN="$(command -v gcloud.cmd)"
+    fi
+    ;;
+esac
+
 # Worker configuration: array of "vm-name:zone" pairs
 WORKERS=(
   "jennah-dp:asia-northeast1-a"
@@ -27,7 +36,8 @@ WORKER_CLAIM_INTERVAL_SECONDS="3"
 CLOUD_TASKS_QUEUE_ID="jennah-simple"
 CLOUD_RUN_IMAGE_REGISTRY="gcr.io/$PROJECT_ID"
 SERVICE_ACCOUNT="gcp-sa-dev-interns@$PROJECT_ID.iam.gserviceaccount.com"
-IMAGE="asia.gcr.io/$PROJECT_ID/jennah-worker:latest"
+IMAGE_TAG="${IMAGE_TAG:-latest}"
+IMAGE="asia-docker.pkg.dev/$PROJECT_ID/asia.gcr.io/jennah-worker:$IMAGE_TAG"
 
 # Docker run command (will be executed remotely)
 DOCKER_COMMAND='docker run -d \
@@ -67,38 +77,34 @@ deploy_worker() {
   echo "Deploying to $vm_name in zone $zone"
   echo "========================================="
   
-  # Create commands to run on remote VM
-  REMOTE_COMMANDS=$(cat <<EOF
-#!/bin/bash
-set -e
-
-echo "Stopping jennah-worker container..."
-docker stop jennah-worker 2>/dev/null || echo "Container not running"
-
-echo "Removing jennah-worker container..."
-docker rm jennah-worker 2>/dev/null || echo "Container not found"
-
-echo "Pulling latest image..."
-docker pull $IMAGE
-
-echo "Starting jennah-worker container..."
-${DOCKER_COMMAND/WORKER_ID_PLACEHOLDER/$vm_name}
-
-echo "Deployment complete for $vm_name"
-EOF
-)
+  # Keep the remote command on one line so Git Bash + gcloud.cmd on Windows
+  # do not mangle multiline --command payloads during argument translation.
+  REMOTE_COMMANDS="set -e; \
+echo 'Stopping jennah-worker container...'; \
+docker stop jennah-worker 2>/dev/null || echo 'Container not running'; \
+echo 'Removing jennah-worker container...'; \
+docker rm jennah-worker 2>/dev/null || echo 'Container not found'; \
+echo 'Configuring Docker auth for Artifact Registry...'; \
+gcloud auth configure-docker asia-docker.pkg.dev --quiet >/dev/null 2>&1; \
+echo 'Pulling latest image...'; \
+docker pull $IMAGE; \
+echo 'Starting jennah-worker container...'; \
+${DOCKER_COMMAND/WORKER_ID_PLACEHOLDER/$vm_name}; \
+docker ps --filter name=jennah-worker --format '{{.Names}} {{.Image}} {{.Status}}' | grep '^jennah-worker '; \
+echo 'Deployment complete for $vm_name'"
   
   # Execute commands on remote VM
-  gcloud compute ssh "$vm_name" \
+  "$GCLOUD_BIN" compute ssh "$vm_name" \
     --zone="$zone" \
     --command="$REMOTE_COMMANDS"
   
-  echo "✓ Successfully deployed to $vm_name"
+  echo "[OK] Successfully deployed to $vm_name"
   echo ""
 }
 
 # Main deployment loop
 echo "Starting deployment to all workers..."
+echo "Worker image: $IMAGE"
 echo ""
 
 for worker_config in "${WORKERS[@]}"; do
@@ -106,5 +112,5 @@ for worker_config in "${WORKERS[@]}"; do
 done
 
 echo "========================================="
-echo "✓ All workers deployed successfully!"
+echo "[OK] All workers deployed successfully!"
 echo "========================================="
