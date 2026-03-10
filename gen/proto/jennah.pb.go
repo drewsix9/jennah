@@ -1139,6 +1139,303 @@ func (x *GetJobResponse) GetJob() *Job {
 	return nil
 }
 
+// A single in-app notification produced from a job.terminal Pub/Sub event.
+type Notification struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Stable event ID from the Pub/Sub payload — used for deduplication.
+	Id      string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	JobId   string `protobuf:"bytes,2,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	JobName string `protobuf:"bytes,3,opt,name=job_name,json=jobName,proto3" json:"job_name,omitempty"`
+	// final_status: COMPLETED | FAILED | CANCELLED
+	FinalStatus     string `protobuf:"bytes,4,opt,name=final_status,json=finalStatus,proto3" json:"final_status,omitempty"`
+	ServiceTier     string `protobuf:"bytes,5,opt,name=service_tier,json=serviceTier,proto3" json:"service_tier,omitempty"`             // SIMPLE | COMPLEX
+	AssignedService string `protobuf:"bytes,6,opt,name=assigned_service,json=assignedService,proto3" json:"assigned_service,omitempty"` // CLOUD_RUN_JOB | CLOUD_BATCH
+	// Unix timestamp (seconds) of when the terminal event occurred.
+	OccurredAt    int64  `protobuf:"varint,7,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`
+	ErrorMessage  string `protobuf:"bytes,8,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	IsRead        bool   `protobuf:"varint,9,opt,name=is_read,json=isRead,proto3" json:"is_read,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Notification) Reset() {
+	*x = Notification{}
+	mi := &file_proto_jennah_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Notification) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Notification) ProtoMessage() {}
+
+func (x *Notification) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_jennah_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Notification.ProtoReflect.Descriptor instead.
+func (*Notification) Descriptor() ([]byte, []int) {
+	return file_proto_jennah_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *Notification) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *Notification) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+func (x *Notification) GetJobName() string {
+	if x != nil {
+		return x.JobName
+	}
+	return ""
+}
+
+func (x *Notification) GetFinalStatus() string {
+	if x != nil {
+		return x.FinalStatus
+	}
+	return ""
+}
+
+func (x *Notification) GetServiceTier() string {
+	if x != nil {
+		return x.ServiceTier
+	}
+	return ""
+}
+
+func (x *Notification) GetAssignedService() string {
+	if x != nil {
+		return x.AssignedService
+	}
+	return ""
+}
+
+func (x *Notification) GetOccurredAt() int64 {
+	if x != nil {
+		return x.OccurredAt
+	}
+	return 0
+}
+
+func (x *Notification) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
+func (x *Notification) GetIsRead() bool {
+	if x != nil {
+		return x.IsRead
+	}
+	return false
+}
+
+type ListNotificationsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Maximum number of notifications to return (default 20).
+	Limit         int32 `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListNotificationsRequest) Reset() {
+	*x = ListNotificationsRequest{}
+	mi := &file_proto_jennah_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListNotificationsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListNotificationsRequest) ProtoMessage() {}
+
+func (x *ListNotificationsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_jennah_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListNotificationsRequest.ProtoReflect.Descriptor instead.
+func (*ListNotificationsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_jennah_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *ListNotificationsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type ListNotificationsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Notifications []*Notification        `protobuf:"bytes,1,rep,name=notifications,proto3" json:"notifications,omitempty"`
+	UnreadCount   int32                  `protobuf:"varint,2,opt,name=unread_count,json=unreadCount,proto3" json:"unread_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListNotificationsResponse) Reset() {
+	*x = ListNotificationsResponse{}
+	mi := &file_proto_jennah_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListNotificationsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListNotificationsResponse) ProtoMessage() {}
+
+func (x *ListNotificationsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_jennah_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListNotificationsResponse.ProtoReflect.Descriptor instead.
+func (*ListNotificationsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_jennah_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *ListNotificationsResponse) GetNotifications() []*Notification {
+	if x != nil {
+		return x.Notifications
+	}
+	return nil
+}
+
+func (x *ListNotificationsResponse) GetUnreadCount() int32 {
+	if x != nil {
+		return x.UnreadCount
+	}
+	return 0
+}
+
+type AckNotificationRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	NotificationId string                 `protobuf:"bytes,1,opt,name=notification_id,json=notificationId,proto3" json:"notification_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *AckNotificationRequest) Reset() {
+	*x = AckNotificationRequest{}
+	mi := &file_proto_jennah_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AckNotificationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AckNotificationRequest) ProtoMessage() {}
+
+func (x *AckNotificationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_jennah_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AckNotificationRequest.ProtoReflect.Descriptor instead.
+func (*AckNotificationRequest) Descriptor() ([]byte, []int) {
+	return file_proto_jennah_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *AckNotificationRequest) GetNotificationId() string {
+	if x != nil {
+		return x.NotificationId
+	}
+	return ""
+}
+
+type AckNotificationResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AckNotificationResponse) Reset() {
+	*x = AckNotificationResponse{}
+	mi := &file_proto_jennah_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AckNotificationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AckNotificationResponse) ProtoMessage() {}
+
+func (x *AckNotificationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_jennah_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AckNotificationResponse.ProtoReflect.Descriptor instead.
+func (*AckNotificationResponse) Descriptor() ([]byte, []int) {
+	return file_proto_jennah_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *AckNotificationResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
 var File_proto_jennah_proto protoreflect.FileDescriptor
 
 const file_proto_jennah_proto_rawDesc = "" +
@@ -1235,7 +1532,27 @@ const file_proto_jennah_proto_rawDesc = "" +
 	"\rGetJobRequest\x12\x15\n" +
 	"\x06job_id\x18\x01 \x01(\tR\x05jobId\"2\n" +
 	"\x0eGetJobResponse\x12 \n" +
-	"\x03job\x18\x01 \x01(\v2\x0e.jennah.v1.JobR\x03job*\x8d\x01\n" +
+	"\x03job\x18\x01 \x01(\v2\x0e.jennah.v1.JobR\x03job\"\xa0\x02\n" +
+	"\fNotification\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x15\n" +
+	"\x06job_id\x18\x02 \x01(\tR\x05jobId\x12\x19\n" +
+	"\bjob_name\x18\x03 \x01(\tR\ajobName\x12!\n" +
+	"\ffinal_status\x18\x04 \x01(\tR\vfinalStatus\x12!\n" +
+	"\fservice_tier\x18\x05 \x01(\tR\vserviceTier\x12)\n" +
+	"\x10assigned_service\x18\x06 \x01(\tR\x0fassignedService\x12\x1f\n" +
+	"\voccurred_at\x18\a \x01(\x03R\n" +
+	"occurredAt\x12#\n" +
+	"\rerror_message\x18\b \x01(\tR\ferrorMessage\x12\x17\n" +
+	"\ais_read\x18\t \x01(\bR\x06isRead\"0\n" +
+	"\x18ListNotificationsRequest\x12\x14\n" +
+	"\x05limit\x18\x01 \x01(\x05R\x05limit\"}\n" +
+	"\x19ListNotificationsResponse\x12=\n" +
+	"\rnotifications\x18\x01 \x03(\v2\x17.jennah.v1.NotificationR\rnotifications\x12!\n" +
+	"\funread_count\x18\x02 \x01(\x05R\vunreadCount\"A\n" +
+	"\x16AckNotificationRequest\x12'\n" +
+	"\x0fnotification_id\x18\x01 \x01(\tR\x0enotificationId\"3\n" +
+	"\x17AckNotificationResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess*\x8d\x01\n" +
 	"\x0fComplexityLevel\x12 \n" +
 	"\x1cCOMPLEXITY_LEVEL_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17COMPLEXITY_LEVEL_SIMPLE\x10\x01\x12\x1c\n" +
@@ -1243,14 +1560,16 @@ const file_proto_jennah_proto_rawDesc = "" +
 	"\x0fAssignedService\x12 \n" +
 	"\x1cASSIGNED_SERVICE_UNSPECIFIED\x10\x00\x12\"\n" +
 	"\x1eASSIGNED_SERVICE_CLOUD_RUN_JOB\x10\x02\x12 \n" +
-	"\x1cASSIGNED_SERVICE_CLOUD_BATCH\x10\x03\"\x04\b\x01\x10\x01*\x1cASSIGNED_SERVICE_CLOUD_TASKS2\xcc\x03\n" +
+	"\x1cASSIGNED_SERVICE_CLOUD_BATCH\x10\x03\"\x04\b\x01\x10\x01*\x1cASSIGNED_SERVICE_CLOUD_TASKS2\x86\x05\n" +
 	"\x11DeploymentService\x12F\n" +
 	"\tSubmitJob\x12\x1b.jennah.v1.SubmitJobRequest\x1a\x1c.jennah.v1.SubmitJobResponse\x12C\n" +
 	"\bListJobs\x12\x1a.jennah.v1.ListJobsRequest\x1a\x1b.jennah.v1.ListJobsResponse\x12[\n" +
 	"\x10GetCurrentTenant\x12\".jennah.v1.GetCurrentTenantRequest\x1a#.jennah.v1.GetCurrentTenantResponse\x12F\n" +
 	"\tCancelJob\x12\x1b.jennah.v1.CancelJobRequest\x1a\x1c.jennah.v1.CancelJobResponse\x12F\n" +
 	"\tDeleteJob\x12\x1b.jennah.v1.DeleteJobRequest\x1a\x1c.jennah.v1.DeleteJobResponse\x12=\n" +
-	"\x06GetJob\x12\x18.jennah.v1.GetJobRequest\x1a\x19.jennah.v1.GetJobResponseB2Z0github.com/alphauslabs/jennah/gen/proto;jennahv1b\x06proto3"
+	"\x06GetJob\x12\x18.jennah.v1.GetJobRequest\x1a\x19.jennah.v1.GetJobResponse\x12^\n" +
+	"\x11ListNotifications\x12#.jennah.v1.ListNotificationsRequest\x1a$.jennah.v1.ListNotificationsResponse\x12X\n" +
+	"\x0fAckNotification\x12!.jennah.v1.AckNotificationRequest\x1a\".jennah.v1.AckNotificationResponseB2Z0github.com/alphauslabs/jennah/gen/proto;jennahv1b\x06proto3"
 
 var (
 	file_proto_jennah_proto_rawDescOnce sync.Once
@@ -1265,48 +1584,58 @@ func file_proto_jennah_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_jennah_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_proto_jennah_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_proto_jennah_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_proto_jennah_proto_goTypes = []any{
-	(ComplexityLevel)(0),             // 0: jennah.v1.ComplexityLevel
-	(AssignedService)(0),             // 1: jennah.v1.AssignedService
-	(*ResourceOverride)(nil),         // 2: jennah.v1.ResourceOverride
-	(*SubmitJobRequest)(nil),         // 3: jennah.v1.SubmitJobRequest
-	(*SubmitJobResponse)(nil),        // 4: jennah.v1.SubmitJobResponse
-	(*ListJobsRequest)(nil),          // 5: jennah.v1.ListJobsRequest
-	(*ListJobsResponse)(nil),         // 6: jennah.v1.ListJobsResponse
-	(*Job)(nil),                      // 7: jennah.v1.Job
-	(*GetCurrentTenantRequest)(nil),  // 8: jennah.v1.GetCurrentTenantRequest
-	(*GetCurrentTenantResponse)(nil), // 9: jennah.v1.GetCurrentTenantResponse
-	(*CancelJobRequest)(nil),         // 10: jennah.v1.CancelJobRequest
-	(*CancelJobResponse)(nil),        // 11: jennah.v1.CancelJobResponse
-	(*DeleteJobRequest)(nil),         // 12: jennah.v1.DeleteJobRequest
-	(*DeleteJobResponse)(nil),        // 13: jennah.v1.DeleteJobResponse
-	(*GetJobRequest)(nil),            // 14: jennah.v1.GetJobRequest
-	(*GetJobResponse)(nil),           // 15: jennah.v1.GetJobResponse
-	nil,                              // 16: jennah.v1.SubmitJobRequest.EnvVarsEntry
+	(ComplexityLevel)(0),              // 0: jennah.v1.ComplexityLevel
+	(AssignedService)(0),              // 1: jennah.v1.AssignedService
+	(*ResourceOverride)(nil),          // 2: jennah.v1.ResourceOverride
+	(*SubmitJobRequest)(nil),          // 3: jennah.v1.SubmitJobRequest
+	(*SubmitJobResponse)(nil),         // 4: jennah.v1.SubmitJobResponse
+	(*ListJobsRequest)(nil),           // 5: jennah.v1.ListJobsRequest
+	(*ListJobsResponse)(nil),          // 6: jennah.v1.ListJobsResponse
+	(*Job)(nil),                       // 7: jennah.v1.Job
+	(*GetCurrentTenantRequest)(nil),   // 8: jennah.v1.GetCurrentTenantRequest
+	(*GetCurrentTenantResponse)(nil),  // 9: jennah.v1.GetCurrentTenantResponse
+	(*CancelJobRequest)(nil),          // 10: jennah.v1.CancelJobRequest
+	(*CancelJobResponse)(nil),         // 11: jennah.v1.CancelJobResponse
+	(*DeleteJobRequest)(nil),          // 12: jennah.v1.DeleteJobRequest
+	(*DeleteJobResponse)(nil),         // 13: jennah.v1.DeleteJobResponse
+	(*GetJobRequest)(nil),             // 14: jennah.v1.GetJobRequest
+	(*GetJobResponse)(nil),            // 15: jennah.v1.GetJobResponse
+	(*Notification)(nil),              // 16: jennah.v1.Notification
+	(*ListNotificationsRequest)(nil),  // 17: jennah.v1.ListNotificationsRequest
+	(*ListNotificationsResponse)(nil), // 18: jennah.v1.ListNotificationsResponse
+	(*AckNotificationRequest)(nil),    // 19: jennah.v1.AckNotificationRequest
+	(*AckNotificationResponse)(nil),   // 20: jennah.v1.AckNotificationResponse
+	nil,                               // 21: jennah.v1.SubmitJobRequest.EnvVarsEntry
 }
 var file_proto_jennah_proto_depIdxs = []int32{
-	16, // 0: jennah.v1.SubmitJobRequest.env_vars:type_name -> jennah.v1.SubmitJobRequest.EnvVarsEntry
+	21, // 0: jennah.v1.SubmitJobRequest.env_vars:type_name -> jennah.v1.SubmitJobRequest.EnvVarsEntry
 	2,  // 1: jennah.v1.SubmitJobRequest.resource_override:type_name -> jennah.v1.ResourceOverride
 	7,  // 2: jennah.v1.ListJobsResponse.jobs:type_name -> jennah.v1.Job
 	7,  // 3: jennah.v1.GetJobResponse.job:type_name -> jennah.v1.Job
-	3,  // 4: jennah.v1.DeploymentService.SubmitJob:input_type -> jennah.v1.SubmitJobRequest
-	5,  // 5: jennah.v1.DeploymentService.ListJobs:input_type -> jennah.v1.ListJobsRequest
-	8,  // 6: jennah.v1.DeploymentService.GetCurrentTenant:input_type -> jennah.v1.GetCurrentTenantRequest
-	10, // 7: jennah.v1.DeploymentService.CancelJob:input_type -> jennah.v1.CancelJobRequest
-	12, // 8: jennah.v1.DeploymentService.DeleteJob:input_type -> jennah.v1.DeleteJobRequest
-	14, // 9: jennah.v1.DeploymentService.GetJob:input_type -> jennah.v1.GetJobRequest
-	4,  // 10: jennah.v1.DeploymentService.SubmitJob:output_type -> jennah.v1.SubmitJobResponse
-	6,  // 11: jennah.v1.DeploymentService.ListJobs:output_type -> jennah.v1.ListJobsResponse
-	9,  // 12: jennah.v1.DeploymentService.GetCurrentTenant:output_type -> jennah.v1.GetCurrentTenantResponse
-	11, // 13: jennah.v1.DeploymentService.CancelJob:output_type -> jennah.v1.CancelJobResponse
-	13, // 14: jennah.v1.DeploymentService.DeleteJob:output_type -> jennah.v1.DeleteJobResponse
-	15, // 15: jennah.v1.DeploymentService.GetJob:output_type -> jennah.v1.GetJobResponse
-	10, // [10:16] is the sub-list for method output_type
-	4,  // [4:10] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	16, // 4: jennah.v1.ListNotificationsResponse.notifications:type_name -> jennah.v1.Notification
+	3,  // 5: jennah.v1.DeploymentService.SubmitJob:input_type -> jennah.v1.SubmitJobRequest
+	5,  // 6: jennah.v1.DeploymentService.ListJobs:input_type -> jennah.v1.ListJobsRequest
+	8,  // 7: jennah.v1.DeploymentService.GetCurrentTenant:input_type -> jennah.v1.GetCurrentTenantRequest
+	10, // 8: jennah.v1.DeploymentService.CancelJob:input_type -> jennah.v1.CancelJobRequest
+	12, // 9: jennah.v1.DeploymentService.DeleteJob:input_type -> jennah.v1.DeleteJobRequest
+	14, // 10: jennah.v1.DeploymentService.GetJob:input_type -> jennah.v1.GetJobRequest
+	17, // 11: jennah.v1.DeploymentService.ListNotifications:input_type -> jennah.v1.ListNotificationsRequest
+	19, // 12: jennah.v1.DeploymentService.AckNotification:input_type -> jennah.v1.AckNotificationRequest
+	4,  // 13: jennah.v1.DeploymentService.SubmitJob:output_type -> jennah.v1.SubmitJobResponse
+	6,  // 14: jennah.v1.DeploymentService.ListJobs:output_type -> jennah.v1.ListJobsResponse
+	9,  // 15: jennah.v1.DeploymentService.GetCurrentTenant:output_type -> jennah.v1.GetCurrentTenantResponse
+	11, // 16: jennah.v1.DeploymentService.CancelJob:output_type -> jennah.v1.CancelJobResponse
+	13, // 17: jennah.v1.DeploymentService.DeleteJob:output_type -> jennah.v1.DeleteJobResponse
+	15, // 18: jennah.v1.DeploymentService.GetJob:output_type -> jennah.v1.GetJobResponse
+	18, // 19: jennah.v1.DeploymentService.ListNotifications:output_type -> jennah.v1.ListNotificationsResponse
+	20, // 20: jennah.v1.DeploymentService.AckNotification:output_type -> jennah.v1.AckNotificationResponse
+	13, // [13:21] is the sub-list for method output_type
+	5,  // [5:13] is the sub-list for method input_type
+	5,  // [5:5] is the sub-list for extension type_name
+	5,  // [5:5] is the sub-list for extension extendee
+	0,  // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_proto_jennah_proto_init() }
@@ -1320,7 +1649,7 @@ func file_proto_jennah_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_jennah_proto_rawDesc), len(file_proto_jennah_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   15,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

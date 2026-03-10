@@ -129,6 +129,10 @@ func runServe(cmd *cobra.Command, args []string) error {
 		}
 		defer pubsubClient.Close()
 		jobNotifier = notifier.NewPubSubNotifier(pubsubClient, cfg.PubSub.TopicPrefix)
+		if consumerURL := os.Getenv("CONSUMER_PUSH_URL"); consumerURL != "" {
+			jobNotifier.(*notifier.PubSubNotifier).ConsumerPushURL = consumerURL
+			log.Printf("Consumer push URL set: %s", consumerURL)
+		}
 		log.Printf("Initialized per-tenant Pub/Sub notifier (project: %s, topic_prefix: %s)", cfg.PubSub.ProjectID, cfg.PubSub.TopicPrefix)
 	} else {
 		jobNotifier = &notifier.NoopNotifier{}

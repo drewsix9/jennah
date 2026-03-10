@@ -51,9 +51,12 @@ func TenantTopicID(topicPrefix, tenantID string) string {
 // PubSubNotifier publishes terminal events to per-tenant Pub/Sub topics.
 // Topics are created lazily on the first publish for each tenant and cached
 // for the lifetime of the notifier.
+// If ConsumerPushURL is set, a push subscription pointing to the consumer
+// service is also ensured whenever a new topic is created.
 type PubSubNotifier struct {
-	client      *pubsub.Client
-	topicPrefix string
+	client         *pubsub.Client
+	topicPrefix    string
+	ConsumerPushURL string // e.g. "https://jennah-consumer-xxx.run.app/pubsub/push"
 
 	mu     sync.RWMutex
 	topics map[string]*pubsub.Topic // tenantID → *pubsub.Topic
@@ -109,6 +112,15 @@ func (n *PubSubNotifier) topicFor(ctx context.Context, tenantID string) (*pubsub
 			}
 		}
 		log.Printf("Created Pub/Sub topic %s for tenant %s", topicID, tenantID)
+
+		// If a consumer push URL is configured, ensure a push subscription
+		// exists so new events are delivered to the consumer service.
+		if n.ConsumerPushURL != "" {
+			if err := n.ensurePushSubscription(ctx, t, topicID, tenantID); err != nil {
+				// Non-fatal: log and continue; messages can be consumed later.
+				log.Printf("WARNING: could not create push subscription for topic %s: %v", topicID, err)
+			}
+		}
 	}
 
 	n.topics[tenantID] = t
@@ -157,6 +169,34 @@ func (n *PubSubNotifier) Close() error {
 	}
 	n.topics = nil
 	return n.client.Close()
+}
+
+// ensurePushSubscription creates a push subscription for topicID → ConsumerPushURL
+// if one does not already exist. Subscription ID: "<topicID>-consumer-push".
+func (n *PubSubNotifier) ensurePushSubscription(ctx context.Context, t *pubsub.Topic, topicID, tenantID string) error {
+	subID := topicID + "-consumer-push"
+	sub := n.client.Subscription(subID)
+	exists, err := sub.Exists(ctx)
+	if err != nil {
+		return fmt.Errorf("check subscription %s: %w", subID, err)
+	}
+	if exists {
+		return nil
+	}
+	_, err = n.client.CreateSubscription(ctx, subID, pubsub.SubscriptionConfig{
+		Topic: t,
+		PushConfig: pubsub.PushConfig{
+			Endpoint: n.ConsumerPushURL,
+		},
+	})
+	if err != nil {
+		if status.Code(err) == codes.AlreadyExists {
+			return nil
+		}
+		return fmt.Errorf("create push subscription %s: %w", subID, err)
+	}
+	log.Printf("Created push subscription %s → %s for tenant %s", subID, n.ConsumerPushURL, tenantID)
+	return nil
 }
 
 // NoopNotifier silently discards all events. Used when Pub/Sub is disabled.

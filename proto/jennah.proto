@@ -42,6 +42,10 @@ service DeploymentService {
   rpc DeleteJob(DeleteJobRequest) returns (DeleteJobResponse);
   // Get a single job's full details.
   rpc GetJob(GetJobRequest) returns (GetJobResponse);
+  // List in-app notifications for the current tenant (saved by Pub/Sub consumer).
+  rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse);
+  // Mark a notification as read (ack).
+  rpc AckNotification(AckNotificationRequest) returns (AckNotificationResponse);
 }
 
 
@@ -174,4 +178,40 @@ message GetJobRequest {
 
 message GetJobResponse {
   Job job = 1;
+}
+
+// ─── Notifications (saved by server-side Pub/Sub consumer) ───────────────────
+
+// A single in-app notification produced from a job.terminal Pub/Sub event.
+message Notification {
+  // Stable event ID from the Pub/Sub payload — used for deduplication.
+  string id = 1;
+  string job_id = 2;
+  string job_name = 3;
+  // final_status: COMPLETED | FAILED | CANCELLED
+  string final_status = 4;
+  string service_tier = 5;    // SIMPLE | COMPLEX
+  string assigned_service = 6; // CLOUD_RUN_JOB | CLOUD_BATCH
+  // Unix timestamp (seconds) of when the terminal event occurred.
+  int64 occurred_at = 7;
+  string error_message = 8;
+  bool is_read = 9;
+}
+
+message ListNotificationsRequest {
+  // Maximum number of notifications to return (default 20).
+  int32 limit = 1;
+}
+
+message ListNotificationsResponse {
+  repeated Notification notifications = 1;
+  int32 unread_count = 2;
+}
+
+message AckNotificationRequest {
+  string notification_id = 1;
+}
+
+message AckNotificationResponse {
+  bool success = 1;
 }

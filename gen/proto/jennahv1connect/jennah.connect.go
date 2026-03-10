@@ -51,6 +51,12 @@ const (
 	// DeploymentServiceGetJobProcedure is the fully-qualified name of the DeploymentService's GetJob
 	// RPC.
 	DeploymentServiceGetJobProcedure = "/jennah.v1.DeploymentService/GetJob"
+	// DeploymentServiceListNotificationsProcedure is the fully-qualified name of the
+	// DeploymentService's ListNotifications RPC.
+	DeploymentServiceListNotificationsProcedure = "/jennah.v1.DeploymentService/ListNotifications"
+	// DeploymentServiceAckNotificationProcedure is the fully-qualified name of the DeploymentService's
+	// AckNotification RPC.
+	DeploymentServiceAckNotificationProcedure = "/jennah.v1.DeploymentService/AckNotification"
 )
 
 // DeploymentServiceClient is a client for the jennah.v1.DeploymentService service.
@@ -67,6 +73,10 @@ type DeploymentServiceClient interface {
 	DeleteJob(context.Context, *connect.Request[proto.DeleteJobRequest]) (*connect.Response[proto.DeleteJobResponse], error)
 	// Get a single job's full details.
 	GetJob(context.Context, *connect.Request[proto.GetJobRequest]) (*connect.Response[proto.GetJobResponse], error)
+	// List in-app notifications for the current tenant (saved by Pub/Sub consumer).
+	ListNotifications(context.Context, *connect.Request[proto.ListNotificationsRequest]) (*connect.Response[proto.ListNotificationsResponse], error)
+	// Mark a notification as read (ack).
+	AckNotification(context.Context, *connect.Request[proto.AckNotificationRequest]) (*connect.Response[proto.AckNotificationResponse], error)
 }
 
 // NewDeploymentServiceClient constructs a client for the jennah.v1.DeploymentService service. By
@@ -116,17 +126,31 @@ func NewDeploymentServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			connect.WithSchema(deploymentServiceMethods.ByName("GetJob")),
 			connect.WithClientOptions(opts...),
 		),
+		listNotifications: connect.NewClient[proto.ListNotificationsRequest, proto.ListNotificationsResponse](
+			httpClient,
+			baseURL+DeploymentServiceListNotificationsProcedure,
+			connect.WithSchema(deploymentServiceMethods.ByName("ListNotifications")),
+			connect.WithClientOptions(opts...),
+		),
+		ackNotification: connect.NewClient[proto.AckNotificationRequest, proto.AckNotificationResponse](
+			httpClient,
+			baseURL+DeploymentServiceAckNotificationProcedure,
+			connect.WithSchema(deploymentServiceMethods.ByName("AckNotification")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // deploymentServiceClient implements DeploymentServiceClient.
 type deploymentServiceClient struct {
-	submitJob        *connect.Client[proto.SubmitJobRequest, proto.SubmitJobResponse]
-	listJobs         *connect.Client[proto.ListJobsRequest, proto.ListJobsResponse]
-	getCurrentTenant *connect.Client[proto.GetCurrentTenantRequest, proto.GetCurrentTenantResponse]
-	cancelJob        *connect.Client[proto.CancelJobRequest, proto.CancelJobResponse]
-	deleteJob        *connect.Client[proto.DeleteJobRequest, proto.DeleteJobResponse]
-	getJob           *connect.Client[proto.GetJobRequest, proto.GetJobResponse]
+	submitJob         *connect.Client[proto.SubmitJobRequest, proto.SubmitJobResponse]
+	listJobs          *connect.Client[proto.ListJobsRequest, proto.ListJobsResponse]
+	getCurrentTenant  *connect.Client[proto.GetCurrentTenantRequest, proto.GetCurrentTenantResponse]
+	cancelJob         *connect.Client[proto.CancelJobRequest, proto.CancelJobResponse]
+	deleteJob         *connect.Client[proto.DeleteJobRequest, proto.DeleteJobResponse]
+	getJob            *connect.Client[proto.GetJobRequest, proto.GetJobResponse]
+	listNotifications *connect.Client[proto.ListNotificationsRequest, proto.ListNotificationsResponse]
+	ackNotification   *connect.Client[proto.AckNotificationRequest, proto.AckNotificationResponse]
 }
 
 // SubmitJob calls jennah.v1.DeploymentService.SubmitJob.
@@ -159,6 +183,16 @@ func (c *deploymentServiceClient) GetJob(ctx context.Context, req *connect.Reque
 	return c.getJob.CallUnary(ctx, req)
 }
 
+// ListNotifications calls jennah.v1.DeploymentService.ListNotifications.
+func (c *deploymentServiceClient) ListNotifications(ctx context.Context, req *connect.Request[proto.ListNotificationsRequest]) (*connect.Response[proto.ListNotificationsResponse], error) {
+	return c.listNotifications.CallUnary(ctx, req)
+}
+
+// AckNotification calls jennah.v1.DeploymentService.AckNotification.
+func (c *deploymentServiceClient) AckNotification(ctx context.Context, req *connect.Request[proto.AckNotificationRequest]) (*connect.Response[proto.AckNotificationResponse], error) {
+	return c.ackNotification.CallUnary(ctx, req)
+}
+
 // DeploymentServiceHandler is an implementation of the jennah.v1.DeploymentService service.
 type DeploymentServiceHandler interface {
 	// Submit a job for deployment.
@@ -173,6 +207,10 @@ type DeploymentServiceHandler interface {
 	DeleteJob(context.Context, *connect.Request[proto.DeleteJobRequest]) (*connect.Response[proto.DeleteJobResponse], error)
 	// Get a single job's full details.
 	GetJob(context.Context, *connect.Request[proto.GetJobRequest]) (*connect.Response[proto.GetJobResponse], error)
+	// List in-app notifications for the current tenant (saved by Pub/Sub consumer).
+	ListNotifications(context.Context, *connect.Request[proto.ListNotificationsRequest]) (*connect.Response[proto.ListNotificationsResponse], error)
+	// Mark a notification as read (ack).
+	AckNotification(context.Context, *connect.Request[proto.AckNotificationRequest]) (*connect.Response[proto.AckNotificationResponse], error)
 }
 
 // NewDeploymentServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -218,6 +256,18 @@ func NewDeploymentServiceHandler(svc DeploymentServiceHandler, opts ...connect.H
 		connect.WithSchema(deploymentServiceMethods.ByName("GetJob")),
 		connect.WithHandlerOptions(opts...),
 	)
+	deploymentServiceListNotificationsHandler := connect.NewUnaryHandler(
+		DeploymentServiceListNotificationsProcedure,
+		svc.ListNotifications,
+		connect.WithSchema(deploymentServiceMethods.ByName("ListNotifications")),
+		connect.WithHandlerOptions(opts...),
+	)
+	deploymentServiceAckNotificationHandler := connect.NewUnaryHandler(
+		DeploymentServiceAckNotificationProcedure,
+		svc.AckNotification,
+		connect.WithSchema(deploymentServiceMethods.ByName("AckNotification")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/jennah.v1.DeploymentService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case DeploymentServiceSubmitJobProcedure:
@@ -232,6 +282,10 @@ func NewDeploymentServiceHandler(svc DeploymentServiceHandler, opts ...connect.H
 			deploymentServiceDeleteJobHandler.ServeHTTP(w, r)
 		case DeploymentServiceGetJobProcedure:
 			deploymentServiceGetJobHandler.ServeHTTP(w, r)
+		case DeploymentServiceListNotificationsProcedure:
+			deploymentServiceListNotificationsHandler.ServeHTTP(w, r)
+		case DeploymentServiceAckNotificationProcedure:
+			deploymentServiceAckNotificationHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -263,4 +317,12 @@ func (UnimplementedDeploymentServiceHandler) DeleteJob(context.Context, *connect
 
 func (UnimplementedDeploymentServiceHandler) GetJob(context.Context, *connect.Request[proto.GetJobRequest]) (*connect.Response[proto.GetJobResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("jennah.v1.DeploymentService.GetJob is not implemented"))
+}
+
+func (UnimplementedDeploymentServiceHandler) ListNotifications(context.Context, *connect.Request[proto.ListNotificationsRequest]) (*connect.Response[proto.ListNotificationsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("jennah.v1.DeploymentService.ListNotifications is not implemented"))
+}
+
+func (UnimplementedDeploymentServiceHandler) AckNotification(context.Context, *connect.Request[proto.AckNotificationRequest]) (*connect.Response[proto.AckNotificationResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("jennah.v1.DeploymentService.AckNotification is not implemented"))
 }

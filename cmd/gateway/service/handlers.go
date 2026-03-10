@@ -331,3 +331,81 @@ func (s *GatewayService) GetJob(
 	log.Printf("Job retrieved successfully: jobId=%s, tenantId=%s, worker=%s", req.Msg.JobId, tenantId, workerIP)
 	return response, nil
 }
+
+func (s *GatewayService) ListNotifications(
+	ctx context.Context,
+	req *connect.Request[jennahv1.ListNotificationsRequest],
+) (*connect.Response[jennahv1.ListNotificationsResponse], error) {
+	tenantId, err := s.resolveTenant(req.Header())
+	if err != nil {
+		return nil, err
+	}
+
+	notifications, err := s.dbClient.ListNotifications(ctx, tenantId, req.Msg.Limit)
+	if err != nil {
+		log.Printf("Failed to list notifications for tenant %s: %v", tenantId, err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list notifications: %w", err))
+	}
+
+	unread, err := s.dbClient.CountUnread(ctx, tenantId)
+	if err != nil {
+		log.Printf("Failed to count unread notifications for tenant %s: %v", tenantId, err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to count unread: %w", err))
+	}
+
+	protoNotifs := make([]*jennahv1.Notification, 0, len(notifications))
+	for _, n := range notifications {
+		protoNotifs = append(protoNotifs, dbNotifToProto(n))
+	}
+
+	return connect.NewResponse(&jennahv1.ListNotificationsResponse{
+		Notifications: protoNotifs,
+		UnreadCount:   unread,
+	}), nil
+}
+
+func (s *GatewayService) AckNotification(
+	ctx context.Context,
+	req *connect.Request[jennahv1.AckNotificationRequest],
+) (*connect.Response[jennahv1.AckNotificationResponse], error) {
+	if req.Msg.NotificationId == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("notification_id is required"))
+	}
+
+	tenantId, err := s.resolveTenant(req.Header())
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.dbClient.AckNotification(ctx, tenantId, req.Msg.NotificationId); err != nil {
+		log.Printf("Failed to ack notification %s for tenant %s: %v", req.Msg.NotificationId, tenantId, err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to ack notification: %w", err))
+	}
+
+	log.Printf("Notification acked: id=%s, tenantId=%s", req.Msg.NotificationId, tenantId)
+	return connect.NewResponse(&jennahv1.AckNotificationResponse{Success: true}), nil
+}
+
+// dbNotifToProto converts a database Notification to its proto representation.
+func dbNotifToProto(n *database.Notification) *jennahv1.Notification {
+	p := &jennahv1.Notification{
+		Id:          n.NotificationId,
+		JobId:       n.JobId,
+		FinalStatus: n.FinalStatus,
+		OccurredAt:  n.OccurredAt.Unix(),
+		IsRead:      n.IsRead,
+	}
+	if n.JobName != nil {
+		p.JobName = *n.JobName
+	}
+	if n.ServiceTier != nil {
+		p.ServiceTier = *n.ServiceTier
+	}
+	if n.AssignedService != nil {
+		p.AssignedService = *n.AssignedService
+	}
+	if n.ErrorMessage != nil {
+		p.ErrorMessage = *n.ErrorMessage
+	}
+	return p
+}
